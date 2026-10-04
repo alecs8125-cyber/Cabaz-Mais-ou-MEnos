@@ -43,6 +43,10 @@ async function buildAll() {
         artifactDir,
         "src/price-import-auchan-sync-daily.ts",
       ),
+      "price-coverage-audit": path.resolve(
+        artifactDir,
+        "src/price-coverage-audit.ts",
+      ),
     },
     platform: "node",
     bundle: true,
