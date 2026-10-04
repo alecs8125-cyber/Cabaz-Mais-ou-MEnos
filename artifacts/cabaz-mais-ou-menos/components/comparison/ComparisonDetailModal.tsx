@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { font } from '@/components/ui';
 import { useColors } from '@/hooks/useColors';
 import { formatDemoPrice } from '@/lib/products';
+import { formatBasketCoverage } from '@/lib/comparison';
 import type { StoreComparison } from '@/lib/comparison';
 
 interface ComparisonDetailModalProps {
@@ -80,6 +81,15 @@ export function ComparisonDetailModal({ result, onClose }: ComparisonDetailModal
               <Text style={[styles.summaryTotal, { color: result.totalCents === null ? c.mutedForeground : c.foreground }]}>
                 {result.totalCents === null ? 'Preço não disponível' : formatDemoPrice(result.totalCents)}
               </Text>
+              <View style={[styles.coverage, { borderTopColor: c.border }]}>
+                <Text style={[styles.summaryLabel, { color: c.mutedForeground }]}>COBERTURA DO CABAZ</Text>
+                <Text
+                  testID={`comparison-detail-coverage-${result.storeId}`}
+                  style={[styles.coverageValue, { color: c.foreground }]}
+                >
+                  {formatBasketCoverage(result.foundProducts, result.requestedProducts)}
+                </Text>
+              </View>
             </View>
 
             <View style={styles.section}>
@@ -127,7 +137,7 @@ export function ComparisonDetailModal({ result, onClose }: ComparisonDetailModal
             <View style={[styles.counts, { backgroundColor: c.card, borderColor: c.border, borderRadius: c.radius }]}>
               <View style={styles.countRow}>
                 <Text style={[styles.countLabel, { color: c.mutedForeground }]}>
-                  {result.includesProductGroups ? 'Linhas com preço' : 'Produtos encontrados'}
+                  Linhas com preço válido
                 </Text>
                 <Text testID={`comparison-detail-found-${result.storeId}`} style={[styles.countValue, { color: c.foreground }]}>
                   {result.foundProducts}
@@ -135,7 +145,7 @@ export function ComparisonDetailModal({ result, onClose }: ComparisonDetailModal
               </View>
               <View style={styles.countRow}>
                 <Text style={[styles.countLabel, { color: c.mutedForeground }]}>
-                  {result.includesProductGroups ? 'Linhas em falta' : 'Produtos em falta'}
+                  Linhas em falta
                 </Text>
                 <Text
                   testID={`comparison-detail-missing-count-${result.storeId}`}
@@ -206,6 +216,8 @@ const styles = StyleSheet.create({
   title: { fontFamily: font.bold, fontSize: 25, letterSpacing: -0.6, marginTop: 4 },
   close: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   summary: { borderWidth: 1, padding: 18, gap: 8 },
+  coverage: { borderTopWidth: 1, paddingTop: 11, marginTop: 3, gap: 3 },
+  coverageValue: { fontFamily: font.semibold, fontSize: 15 },
   status: { flexDirection: 'row', alignSelf: 'flex-start', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
   statusText: { fontFamily: font.semibold, fontSize: 12 },
   summaryLabel: { fontFamily: font.bold, fontSize: 11, letterSpacing: 1.1, marginTop: 5 },

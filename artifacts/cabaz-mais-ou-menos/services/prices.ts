@@ -27,6 +27,7 @@ export interface VerifiedPrice {
   readonly priceCents: number;
   readonly capturedAt: string;
   readonly sourceType: string;
+  readonly validUntil?: string | null;
 }
 
 export interface ComparisonData {
@@ -131,6 +132,7 @@ function readPrice(row: Record<string, unknown>, now: number): VerifiedPrice | n
     priceCents,
     capturedAt: row.captured_at,
     sourceType: row.source_type,
+    validUntil: typeof row.valid_until === 'string' ? row.valid_until : null,
   };
 }
 

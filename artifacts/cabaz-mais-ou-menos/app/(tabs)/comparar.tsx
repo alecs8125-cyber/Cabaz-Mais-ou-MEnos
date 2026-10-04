@@ -17,6 +17,7 @@ import {
   collectComparisonProductIds,
   compareSupabaseBasket,
   compareSupabaseBasketWithGroups,
+  formatBasketCoverage,
   hasProductGroupBasketItems,
   type ProductGroupMembersById,
   type StoreComparison,
@@ -42,6 +43,7 @@ function CompararContent() {
   const { items } = useBasket();
   const { location, isLoading: isLocationLoading } = useZone();
   const [selectedResult, setSelectedResult] = useState<StoreComparison | null>(null);
+  const [comparisonNow, setComparisonNow] = useState(() => Date.now());
   const isEmpty = items.length === 0;
   const groupItems = useMemo(
     () => items.filter((item): item is ProductGroupBasketItem => item.kind === 'group'),
@@ -117,6 +119,28 @@ function CompararContent() {
     }
     focusedOnce.current = true;
   }, [groupMembersQuery.refetch, hasGroupChoices, isEmpty, pricesQuery.refetch]));
+  const nextPriceExpiry = useMemo(() => {
+    let earliest: number | null = null;
+    for (const price of pricesQuery.data?.prices ?? []) {
+      if (!price.validUntil) continue;
+      const validUntil = Date.parse(price.validUntil);
+      if (Number.isFinite(validUntil) && (earliest === null || validUntil < earliest)) {
+        earliest = validUntil;
+      }
+    }
+    return earliest;
+  }, [pricesQuery.data?.prices]);
+  useEffect(() => {
+    if (nextPriceExpiry === null) return;
+    const delay = Math.max(0, nextPriceExpiry - Date.now() + 1);
+    const timer = setTimeout(() => {
+      const now = Date.now();
+      setComparisonNow(now);
+      if (now > nextPriceExpiry) void pricesQuery.refetch();
+    }, Math.min(delay, 2_147_000_000));
+    return () => clearTimeout(timer);
+  }, [comparisonNow, nextPriceExpiry, pricesQuery.refetch]);
+  const nowForComparison = Math.max(comparisonNow, Date.now());
   const results = useMemo(
     () => {
       if (!pricesQuery.data) return [];
@@ -126,10 +150,16 @@ function CompararContent() {
             pricesQuery.data.stores,
             pricesQuery.data.prices,
             groupMembersById,
+            nowForComparison,
           )
-        : compareSupabaseBasket(exactItems, pricesQuery.data.stores, pricesQuery.data.prices);
+        : compareSupabaseBasket(
+            exactItems,
+            pricesQuery.data.stores,
+            pricesQuery.data.prices,
+            nowForComparison,
+          );
     },
-    [exactItems, groupMembersById, hasGroupChoices, items, pricesQuery.data],
+    [exactItems, groupMembersById, hasGroupChoices, items, nowForComparison, pricesQuery.data],
   );
   const loading = isLocationLoading ||
     (hasGroupChoices && groupMembersQuery.isFetching) ||

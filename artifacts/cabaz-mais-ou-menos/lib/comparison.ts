@@ -40,6 +40,13 @@ export interface StoreComparison {
   readonly includesProductGroups?: boolean;
 }
 
+export function formatBasketCoverage(
+  foundProducts: number,
+  requestedProducts: number,
+): string {
+  return `${foundProducts}/${requestedProducts} linhas com preço válido`;
+}
+
 /** Totais por loja, incluindo quantidades; contagem por produto distinto. */
 export function compareBasket(
   items: readonly ExactBasketItem[],
@@ -99,6 +106,7 @@ export function compareSupabaseBasket(
   items: readonly ExactBasketItem[],
   stores: readonly ComparisonStore[],
   prices: readonly VerifiedPrice[],
+  now = Date.now(),
 ): readonly StoreComparison[] {
   const quantities = new Map<string, { name: string; quantity: number }>();
   for (const { product, quantity } of items) {
@@ -117,6 +125,7 @@ export function compareSupabaseBasket(
   const byStoreAndProduct = new Map<string, VerifiedPrice>();
   for (const price of prices) {
     if (!quantities.has(price.productId)) continue;
+    if (isPriceExpired(price, now)) continue;
     if (!Number.isSafeInteger(price.priceCents) || price.priceCents <= 0) {
       throw new Error('O preço tem de ser positivo e expresso em cêntimos inteiros.');
     }
@@ -290,6 +299,15 @@ function priceKey(storeId: string, productId: string): string {
   return JSON.stringify([storeId, productId]);
 }
 
+function isPriceExpired(price: VerifiedPrice, now: number): boolean {
+  if (price.validUntil == null) return false;
+  const validUntil = Date.parse(price.validUntil);
+  if (!Number.isFinite(validUntil)) {
+    throw new Error('A data de validade do preço é inválida.');
+  }
+  return validUntil < now;
+}
+
 /**
  * Compara escolhas genéricas pelos seus produtos reais candidatos por loja.
  * A linha original do cabaz permanece genérica; apenas o resultado contém o SKU escolhido.
@@ -299,6 +317,7 @@ export function compareSupabaseBasketWithGroups(
   stores: readonly ComparisonStore[],
   prices: readonly VerifiedPrice[],
   membersByGroupId: ProductGroupMembersById,
+  now = Date.now(),
 ): readonly StoreComparison[] {
   const lines = prepareComparisonLines(items, membersByGroupId);
   if (!lines.length) return [];
@@ -312,6 +331,7 @@ export function compareSupabaseBasketWithGroups(
   const byStoreAndProduct = new Map<string, VerifiedPrice>();
   for (const price of prices) {
     if (!productIds.has(price.productId)) continue;
+    if (isPriceExpired(price, now)) continue;
     if (!Number.isSafeInteger(price.priceCents) || price.priceCents <= 0) {
       throw new Error('O preço tem de ser positivo e expresso em cêntimos inteiros.');
     }

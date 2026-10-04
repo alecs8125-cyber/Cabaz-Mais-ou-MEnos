@@ -4,6 +4,7 @@ const {
   collectComparisonProductIds,
   compareSupabaseBasket,
   compareSupabaseBasketWithGroups,
+  formatBasketCoverage,
 } = require('../.test-build/lib/comparison.js');
 
 const capturedAt = '2026-09-30T14:17:10.617Z';
@@ -111,6 +112,85 @@ test('um par produto/loja usa o preço verificado capturado mais recentemente', 
   assert.equal(result.totalCents, 178);
   assert.equal(result.latestCapturedAt, capturedAt);
   assert.equal(result.lines[0].unitPriceCents, 89);
+});
+
+test('preço expirado não é atual e deixa a linha indisponível', () => {
+  const now = Date.parse('2026-10-04T12:00:00.000Z');
+  const result = compareSupabaseBasket(
+    [{ product: milk, quantity: 1 }],
+    stores.slice(0, 1),
+    [{
+      ...price('milk', 'a', 89),
+      validUntil: '2026-10-04T11:59:59.999Z',
+    }],
+    now,
+  )[0];
+
+  assert.equal(result.foundProducts, 0);
+  assert.equal(result.missingProducts, 1);
+  assert.equal(result.totalCents, null);
+  assert.equal(result.latestCapturedAt, null);
+  assert.equal(result.lines[0].unitPriceCents, null);
+  assert.equal(result.lines[0].subtotalCents, null);
+  assert.equal(formatBasketCoverage(result.foundProducts, result.requestedProducts),
+    '0/1 linhas com preço válido');
+});
+
+test('a cobertura distingue comparação parcial e completa', () => {
+  const partial = compareSupabaseBasket(basket, stores.slice(0, 1), [
+    price('milk', 'a', 89),
+    price('rice', 'a', 149),
+  ])[0];
+  const complete = compareSupabaseBasket(
+    basket,
+    stores.slice(0, 1),
+    prices.filter((entry) => entry.storeId === 'a'),
+  )[0];
+
+  assert.equal(formatBasketCoverage(partial.foundProducts, partial.requestedProducts),
+    '2/3 linhas com preço válido');
+  assert.equal(partial.isComplete, false);
+  assert.equal(formatBasketCoverage(complete.foundProducts, complete.requestedProducts),
+    '3/3 linhas com preço válido');
+  assert.equal(complete.isComplete, true);
+});
+
+test('os dois canais online mantêm nomes e âmbito com cobertura do cabaz', () => {
+  const continente = { id: 'continente-online', name: 'Continente Online', isOnline: true };
+  const auchan = {
+    id: 'auchan-reference',
+    name: 'Auchan Online · referência 2650-435 (Amadora)',
+    isOnline: true,
+    isRegionalReference: true,
+    referenceScopeNote: 'Preço de referência para entregas e recolhas no código postal 2650-435 (Amadora).',
+  };
+  const result = compareSupabaseBasket(
+    [{ product: milk, quantity: 1 }, { product: rice, quantity: 1 }],
+    [continente, auchan],
+    [
+      price('milk', continente.id, 89),
+      price('rice', continente.id, 149),
+      price('milk', auchan.id, 95),
+    ],
+    Date.parse(capturedAt),
+  );
+  const byStore = Object.fromEntries(result.map((entry) => [entry.storeId, entry]));
+
+  assert.equal(byStore[continente.id].storeName, 'Continente Online');
+  assert.equal(byStore[continente.id].isOnline, true);
+  assert.equal(formatBasketCoverage(
+    byStore[continente.id].foundProducts,
+    byStore[continente.id].requestedProducts,
+  ), '2/2 linhas com preço válido');
+  assert.equal(byStore[auchan.id].storeName, 'Auchan Online · referência 2650-435 (Amadora)');
+  assert.equal(byStore[auchan.id].isOnline, true);
+  assert.equal(byStore[auchan.id].isRegionalReference, true);
+  assert.equal(byStore[auchan.id].referenceScopeNote, auchan.referenceScopeNote);
+  assert.equal(formatBasketCoverage(
+    byStore[auchan.id].foundProducts,
+    byStore[auchan.id].requestedProducts,
+  ), '1/2 linhas com preço válido');
+  assert.equal(byStore[auchan.id].lines.find((line) => line.productId === 'rice').unitPriceCents, null);
 });
 
 test('quantidades ou preços inválidos não dão origem a totais inventados', () => {

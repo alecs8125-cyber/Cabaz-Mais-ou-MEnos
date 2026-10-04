@@ -4,6 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import { font } from '@/components/ui';
 import { useColors } from '@/hooks/useColors';
 import { formatDemoPrice } from '@/lib/products';
+import { formatBasketCoverage } from '@/lib/comparison';
 import type { StoreComparison } from '@/lib/comparison';
 
 export function StoreResultCard({
@@ -26,7 +27,7 @@ export function StoreResultCard({
     <Pressable
       testID={`comparison-store-${r.storeId}`}
       accessibilityRole="button"
-      accessibilityLabel={`Abrir detalhe de ${r.storeName}, ${hasTotal ? formatDemoPrice(r.totalCents!) : 'preço não disponível'}, ${r.isComplete ? 'comparação completa' : 'comparação parcial'}`}
+      accessibilityLabel={`Abrir detalhe de ${r.storeName}, ${hasTotal ? formatDemoPrice(r.totalCents!) : 'preço não disponível'}, ${formatBasketCoverage(r.foundProducts, r.requestedProducts)}, ${r.isComplete ? 'comparação completa' : 'comparação parcial'}`}
       accessibilityHint="Mostra os produtos, subtotais e estado desta comparação."
       onPress={onPress}
       style={[
@@ -121,22 +122,19 @@ export function StoreResultCard({
               </Text>
             );
           })}
-          <Text style={[styles.note, { color: c.mutedForeground }]}>
-            Última atualização: {r.latestCapturedAt
-              ? new Date(r.latestCapturedAt).toLocaleString('pt-PT', {
-                  day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
-                })
-              : 'Sem preços disponíveis'}
-          </Text>
         </View>
       ) : null}
 
       <View style={[styles.counts, { borderTopColor: c.border }]}>
-        <Text testID={`comparison-found-${r.storeId}`} style={[styles.count, { color: c.foreground }]}>
-          {r.foundProducts}/{r.requestedProducts} {r.includesProductGroups
-            ? 'linhas com preço'
-            : r.requestedProducts === 1 ? 'produto encontrado' : 'produtos encontrados'}
-        </Text>
+        <View style={styles.coverage}>
+          <Text style={[styles.coverageLabel, { color: c.mutedForeground }]}>COBERTURA DO CABAZ</Text>
+          <Text
+            testID={`comparison-coverage-${r.storeId}`}
+            style={[styles.count, { color: c.foreground }]}
+          >
+            {formatBasketCoverage(r.foundProducts, r.requestedProducts)}
+          </Text>
+        </View>
         <Text
           testID={`comparison-missing-${r.storeId}`}
           style={[styles.count, { color: r.missingProducts > 0 ? c.tomato : c.mutedForeground }]}
@@ -144,6 +142,19 @@ export function StoreResultCard({
           {r.missingProducts} {r.includesProductGroups
             ? 'linhas em falta'
             : r.missingProducts === 1 ? 'produto em falta' : 'produtos em falta'}
+        </Text>
+      </View>
+      <View
+        testID={`comparison-updated-${r.storeId}`}
+        style={[styles.updated, { borderTopColor: c.border }]}
+      >
+        <Feather name="clock" size={13} color={c.mutedForeground} />
+        <Text style={[styles.note, { color: c.mutedForeground }]}>
+          Última atualização: {r.latestCapturedAt
+            ? new Date(r.latestCapturedAt).toLocaleString('pt-PT', {
+                day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+              })
+            : 'Sem preços disponíveis'}
         </Text>
       </View>
 
@@ -188,7 +199,10 @@ const styles = StyleSheet.create({
   totalRow: { flexDirection: 'row', alignItems: 'flex-end' },
   label: { fontFamily: font.bold, fontSize: 11, letterSpacing: 1.2 },
   total: { fontFamily: font.bold, marginTop: 2, fontVariant: ['tabular-nums'] },
-  counts: { borderTopWidth: 1, paddingTop: 10, flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 },
+  counts: { borderTopWidth: 1, paddingTop: 10, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 },
+  coverage: { flex: 1, minWidth: 170, gap: 2 },
+  coverageLabel: { fontFamily: font.bold, fontSize: 10, letterSpacing: 1 },
+  updated: { borderTopWidth: 1, paddingTop: 9, flexDirection: 'row', alignItems: 'center', gap: 6 },
   breakdown: { borderTopWidth: 1, paddingTop: 10, gap: 4 },
   groupLine: { gap: 3 },
   count: { fontFamily: font.medium, fontSize: 13 },
