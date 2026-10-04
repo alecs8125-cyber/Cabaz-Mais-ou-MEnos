@@ -1,6 +1,12 @@
 import { supabase } from '../lib/supabase';
 import { getStores, type StoreLocationFilter } from './stores';
-import { isContinenteOnline } from '../lib/store-channel';
+import {
+  AUCHAN_REFERENCE_SCOPE_NOTE,
+  AUCHAN_REFERENCE_STORE_LABEL,
+  isAuchanReferenceLocation,
+  isAuchanRegionalReference,
+  isContinenteOnline,
+} from '../lib/store-channel';
 
 const PAGE_SIZE = 200;
 const PRODUCT_BATCH_SIZE = 50;
@@ -11,6 +17,8 @@ export interface ComparisonStore {
   readonly id: string;
   readonly name: string;
   readonly isOnline?: boolean;
+  readonly isRegionalReference?: boolean;
+  readonly referenceScopeNote?: string;
 }
 
 export interface VerifiedPrice {
@@ -43,15 +51,27 @@ export function filterActiveStoresForLocation(
 
   return rows.filter((row) =>
     row.active === true &&
-    (isContinenteOnline(row) || (matches(row.district, district) &&
-    matches(row.municipality, municipality) &&
-    matches(row.parish, parish))),
+    (isContinenteOnline(row) ||
+      (isAuchanRegionalReference(row)
+        ? isAuchanReferenceLocation(selection)
+        : matches(row.district, district) &&
+          matches(row.municipality, municipality) &&
+          matches(row.parish, parish))),
   );
 }
 
 function readStore(row: Record<string, unknown>): ComparisonStore {
   if (typeof row.id !== 'string' || !row.id || typeof row.name !== 'string' || !row.name.trim()) {
     throw new Error('O Supabase devolveu uma loja ativa com campos inválidos.');
+  }
+  if (isAuchanRegionalReference(row)) {
+    return {
+      id: row.id,
+      name: AUCHAN_REFERENCE_STORE_LABEL,
+      isOnline: true,
+      isRegionalReference: true,
+      referenceScopeNote: AUCHAN_REFERENCE_SCOPE_NOTE,
+    };
   }
   return {
     id: row.id,

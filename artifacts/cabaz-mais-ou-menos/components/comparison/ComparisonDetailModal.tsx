@@ -42,9 +42,18 @@ export function ComparisonDetailModal({ result, onClose }: ComparisonDetailModal
                 <Text accessibilityRole="header" style={[styles.title, { color: c.foreground }]}>
                   {result.storeName}
                 </Text>
-                {result.isOnline ? (
+                {result.isRegionalReference ? (
+                  <Text testID="comparison-detail-reference" style={[styles.kicker, { color: c.primary }]}>
+                    Referência regional · código postal 2650-435
+                  </Text>
+                ) : result.isOnline ? (
                   <Text testID="comparison-detail-online" style={[styles.kicker, { color: c.primary }]}>
                     Online · sem associação a loja física
+                  </Text>
+                ) : null}
+                {result.referenceScopeNote ? (
+                  <Text testID="comparison-detail-reference-scope" style={[styles.quantity, { color: c.mutedForeground, marginTop: 6 }]}>
+                    {result.referenceScopeNote}
                   </Text>
                 ) : null}
               </View>

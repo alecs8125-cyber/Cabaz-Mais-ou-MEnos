@@ -2,6 +2,8 @@ export type AuchanPriceScope =
   | "reference_only_2650_435"
   | "unknown";
 
+export const AUCHAN_PRICE_FRESHNESS_MS = 36 * 60 * 60 * 1000;
+
 export interface AuchanProductObservation {
   readonly sourceType: "auchan";
   readonly externalProductId: string | null;

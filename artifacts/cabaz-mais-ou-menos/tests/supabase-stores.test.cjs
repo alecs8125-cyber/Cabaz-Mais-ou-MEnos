@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const calls = [];
 let resolvePage = () => [];
 let onlineRows = [];
+let referenceRows = [];
 
 const supabase = {
   schema(name) {
@@ -13,6 +14,7 @@ const supabase = {
         calls.push(['from', table]);
         let pageStart = 0;
         let onlineQuery = false;
+        let referenceQuery = false;
         const request = {
           select(...args) {
             calls.push(['select', ...args]);
@@ -21,6 +23,7 @@ const supabase = {
           eq(...args) {
             calls.push(['eq', ...args]);
             if (args[0] === 'external_id' && args[1] === 'online') onlineQuery = true;
+            if (args[0] === 'external_id' && args[1] === 'reference:2650-435') referenceQuery = true;
             return request;
           },
           ilike(...args) {
@@ -41,7 +44,10 @@ const supabase = {
             return request;
           },
           then(resolve, reject) {
-            return Promise.resolve({ data: onlineQuery ? onlineRows : resolvePage(pageStart), error: null })
+            return Promise.resolve({
+              data: onlineQuery ? onlineRows : referenceQuery ? referenceRows : resolvePage(pageStart),
+              error: null,
+            })
               .then(resolve, reject);
           },
         };
@@ -86,7 +92,7 @@ test('consulta apenas colunas necessárias, lojas ativas e filtros de localizaç
     parish: 'Quarteira',
   });
 
-  assert.deepEqual(callsFor('select'), Array(2).fill(['select', 'id,name,active,district,municipality,parish,source_type,external_id,store_type']));
+  assert.deepEqual(callsFor('select'), Array(2).fill(['select', 'id,name,active,district,municipality,parish,source_type,external_id,store_type,postal_code']));
   assert.ok(callsFor('eq').some(([, field, value]) =>
     field === 'active' && value === true));
   assert.deepEqual(
@@ -159,4 +165,75 @@ test('Continente Online é consultado exatamente, sem filtros da zona, mesmo sem
     onlineRows = [online, { ...online, id: 'duplicate' }];
     await assert.rejects(getStores(null), /mais de uma/);
   } finally { onlineRows = []; }
+});
+
+test('consulta Auchan apenas para Lisboa/Amadora e valida a identidade postal exata', async () => {
+  const reference = {
+    id: 'auchan-reference',
+    name: 'Auchan 2650',
+    active: true,
+    district: 'Lisboa',
+    municipality: 'Amadora',
+    parish: null,
+    source_type: 'auchan',
+    external_id: 'reference:2650-435',
+    store_type: 'online_reference',
+    postal_code: '2650-435',
+  };
+  resolvePage = () => [];
+  onlineRows = [];
+  referenceRows = [reference];
+  try {
+    calls.length = 0;
+    const result = await getStores({ district: 'Lisboa', municipality: 'Amadora' });
+    assert.deepEqual(result, [reference]);
+    assert.ok(callsFor('eq').some(([, field, value]) =>
+      field === 'source_type' && value === 'auchan'));
+    assert.ok(callsFor('eq').some(([, field, value]) =>
+      field === 'external_id' && value === 'reference:2650-435'));
+    assert.deepEqual(callsFor('range'), [['range', 0, 499], ['range', 0, 1], ['range', 0, 1]]);
+
+    calls.length = 0;
+    referenceRows = [{ ...reference, postal_code: '1000-001' }];
+    await assert.rejects(
+      () => getStores({ district: 'Lisboa', municipality: 'Amadora' }),
+      /resposta inválida para a referência regional Auchan/i,
+    );
+    calls.length = 0;
+    referenceRows = [reference, { ...reference, id: 'duplicate' }];
+    await assert.rejects(
+      () => getStores({ district: 'Lisboa', municipality: 'Amadora' }),
+      /mais de uma referência regional Auchan/i,
+    );
+  } finally {
+    referenceRows = [];
+    onlineRows = [];
+  }
+});
+
+test('uma seleção incompleta ou de outra região nunca devolve a referência Auchan', async () => {
+  const reference = {
+    id: 'auchan-reference',
+    name: 'Auchan 2650',
+    active: true,
+    district: 'Lisboa',
+    municipality: 'Amadora',
+    parish: null,
+    source_type: 'auchan',
+    external_id: 'reference:2650-435',
+    store_type: 'online_reference',
+    postal_code: '2650-435',
+  };
+  resolvePage = () => [reference];
+  onlineRows = [];
+  referenceRows = [];
+  calls.length = 0;
+  try {
+    const result = await getStores({ district: 'Lisboa' });
+    assert.deepEqual(result, []);
+    assert.equal(callsFor('eq').some(([, field, value]) =>
+      field === 'external_id' && value === 'reference:2650-435'), false);
+  } finally {
+    resolvePage = () => [];
+  }
 });

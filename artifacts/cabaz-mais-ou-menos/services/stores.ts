@@ -1,5 +1,9 @@
 import { supabase } from '../lib/supabase';
-import { isContinenteOnline } from '../lib/store-channel';
+import {
+  isAuchanReferenceLocation,
+  isAuchanRegionalReference,
+  isContinenteOnline,
+} from '../lib/store-channel';
 
 export interface StoreLocationFilter {
   readonly district?: string | null;
@@ -7,7 +11,7 @@ export interface StoreLocationFilter {
   readonly parish?: string | null;
 }
 
-const STORE_COLUMNS = 'id,name,active,district,municipality,parish,source_type,external_id,store_type';
+const STORE_COLUMNS = 'id,name,active,district,municipality,parish,source_type,external_id,store_type,postal_code';
 const STORE_PAGE_SIZE = 500;
 const ACCENTABLE_LATIN_BASES = new Set(['a', 'c', 'e', 'i', 'n', 'o', 'u', 'y']);
 
@@ -98,8 +102,31 @@ export async function getStores(
       throw new Error('Resposta inválida para Continente Online.');
     }
     if (online.length > 1) throw new Error('Existe mais de uma loja Continente Online.');
-    const distinct = new Map(stores.filter((row) => !isContinenteOnline(row)).map((row) => [row.id, row]));
+    const distinct = new Map(stores
+      .filter((row) => !isContinenteOnline(row) && !isAuchanRegionalReference(row))
+      .map((row) => [row.id, row]));
     for (const row of online) distinct.set(row.id, row);
+
+    if (isAuchanReferenceLocation(selection)) {
+      let referenceRequest = supabase.schema('public').from('stores')
+        .select(STORE_COLUMNS)
+        .eq('active', true)
+        .eq('source_type', 'auchan')
+        .eq('external_id', 'reference:2650-435')
+        .range(0, 1);
+      if (signal) referenceRequest = referenceRequest.abortSignal(signal);
+      const { data: reference, error: referenceError } = await referenceRequest;
+      if (referenceError) {
+        throw new Error(referenceError.code
+          ? `[${referenceError.code}] ${referenceError.message}`
+          : referenceError.message);
+      }
+      if (!Array.isArray(reference) || reference.some((row) => !isAuchanRegionalReference(row))) {
+        throw new Error('Resposta inválida para a referência regional Auchan 2650-435.');
+      }
+      if (reference.length > 1) throw new Error('Existe mais de uma referência regional Auchan 2650-435.');
+      if (reference.length === 1) distinct.set(reference[0]!.id, reference[0]!);
+    }
     return [...distinct.values()];
   } catch (cause) {
     const message =

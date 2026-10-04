@@ -12,6 +12,7 @@ const ALLOWED_TABLES = new Set<SupabaseReadTable>([
   "stores",
   "external_product_mappings",
   "prices",
+  "price_history",
 ]);
 
 export interface SupabaseAuchanReadConfig {
@@ -111,6 +112,25 @@ export class SupabaseAuchanReadClient implements SupabaseReadOnlyClient {
     const body: unknown = await response.json();
     if (!isRecord(body)) throw new Error("Supabase returned an invalid OpenAPI document.");
     return body;
+  }
+
+  async getRpc(name: "auchan_sync_capabilities"): Promise<unknown> {
+    const response = await this.fetchImplementation(
+      new URL(`/rest/v1/rpc/${name}`, this.baseUrl),
+      {
+        method: "GET",
+        headers: {
+          apikey: this.serviceRoleKey,
+          authorization: `Bearer ${this.serviceRoleKey}`,
+          accept: "application/json",
+        },
+        signal: AbortSignal.timeout(15_000),
+      },
+    );
+    if (!response.ok) {
+      throw new Error(`Read-only GET public.${name} failed with HTTP ${response.status}.`);
+    }
+    return response.json();
   }
 }
 

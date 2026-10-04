@@ -228,6 +228,63 @@ test('a validação local mantém a correspondência com diferenças de maiúscu
   assert.deepEqual(result.map(({ id }) => id), ['variant']);
 });
 
+test('a referência Auchan aparece apenas em Lisboa/Amadora, sem distância e com nota de âmbito', async () => {
+  const reference = {
+    id: 'auchan-reference',
+    name: 'Nome interno do registo',
+    active: true,
+    district: 'Lisboa',
+    municipality: 'Amadora',
+    parish: null,
+    source_type: 'auchan',
+    external_id: 'reference:2650-435',
+    store_type: 'online_reference',
+    postal_code: '2650-435',
+  };
+  storeRows.push(reference);
+  try {
+    assert.deepEqual(
+      filterActiveStoresForLocation([reference], { district: 'Lisboa' }),
+      [],
+    );
+    assert.deepEqual(
+      filterActiveStoresForLocation([reference], { district: 'Faro', municipality: 'Loulé' }),
+      [],
+    );
+    assert.deepEqual(
+      filterActiveStoresForLocation([reference], { district: 'Lisboa', municipality: 'Amadora' }),
+      [reference],
+    );
+
+    responseRows = [{
+      ...row('2.35', new Date(Date.now() - 60000).toISOString()),
+      store_id: reference.id,
+      source_type: 'auchan',
+    }];
+    const result = await getComparisonData(['milk'], {
+      district: 'Lisboa',
+      municipality: 'Amadora',
+    });
+    const channel = result.stores.find((store) => store.id === reference.id);
+    assert.deepEqual(channel, {
+      id: reference.id,
+      name: 'Auchan Online · referência 2650-435 (Amadora)',
+      isOnline: true,
+      isRegionalReference: true,
+      referenceScopeNote: 'Preço de referência para entregas e recolhas no código postal 2650-435 (Amadora). Pode não corresponder ao preço aplicável ao teu código postal nem a uma loja física.',
+    });
+    assert.equal(result.prices[0].storeId, reference.id);
+    for (const key of ['distance', 'distanceKm', 'district', 'municipality', 'parish']) {
+      assert.equal(key in channel, false);
+    }
+
+    const faro = await getComparisonData(['milk'], { district: 'Faro', municipality: 'Loulé' });
+    assert.equal(faro.stores.some((store) => store.id === reference.id), false);
+  } finally {
+    storeRows.pop();
+  }
+});
+
 test('a consulta de comparação usa apenas lojas da freguesia escolhida', async () => {
   calls.length = 0;
   responseRows = [row('1.23', new Date(Date.now() - 60000).toISOString())];

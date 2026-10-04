@@ -10,6 +10,7 @@ import type {
   AuchanAdapterAudit,
   AuchanProductObservation,
 } from "./auchan-types.js";
+import { AUCHAN_PRICE_FRESHNESS_MS } from "./auchan-types.js";
 
 export interface AuchanCatalogReader {
   loadAllProducts(): Promise<ContinenteCatalogProduct[]>;
@@ -26,8 +27,10 @@ export interface AuchanDryRunItem {
   readonly observation: AuchanProductObservation;
   readonly match: ContinenteProductMatch;
   readonly plannedProductAction: AuchanPlannedProductAction;
+  readonly identityStable: boolean;
   readonly priceUsableForProduct: boolean;
-  readonly priceSafeToImport: false;
+  readonly priceSafeToImport: boolean;
+  readonly importBlockers: readonly string[];
 }
 
 export interface AuchanDryRunReport {
@@ -61,7 +64,7 @@ export interface AuchanDryRunReport {
     sourceNativeCandidates: number;
     sourceNativeInactive: number;
     pricesUsableForProduct: number;
-    pricesSafeToImport: 0;
+    pricesSafeToImport: number;
     httpErrors: number;
     redirects: number;
     invalidPages: number;
@@ -75,6 +78,7 @@ export interface AuchanDryRunOptions {
   readonly pageRequestBudget?: number;
   readonly stabilityReads?: number;
   readonly offset?: number;
+  readonly now?: () => Date;
 }
 
 function uniqueObservations(audit: AuchanAdapterAudit): {
@@ -117,6 +121,60 @@ function plannedAction(
   return observation.externalProductId ? "create_source_native" : "review_identity";
 }
 
+function hasSafeAuchanIdentity(observation: AuchanProductObservation): boolean {
+  if (
+    observation.sourceType !== "auchan" ||
+    !observation.externalProductId ||
+    !/^[1-9]\d*$/.test(observation.externalProductId) ||
+    observation.externalProductId !== observation.sku ||
+    observation.externalProductId !== observation.urlProductId
+  ) return false;
+  try {
+    const url = new URL(observation.sourceReference);
+    return url.origin === "https://www.auchan.pt" &&
+      url.pathname.startsWith("/pt/") &&
+      url.pathname.endsWith(`/${observation.externalProductId}.html`) &&
+      !url.search &&
+      !url.hash;
+  } catch {
+    return false;
+  }
+}
+
+function importBlockers(
+  observation: AuchanProductObservation,
+  match: ContinenteProductMatch,
+  identityStable: boolean,
+  now: number,
+): string[] {
+  const blockers: string[] = [];
+  if (!hasSafeAuchanIdentity(observation)) blockers.push("identity_not_verified");
+  if (!identityStable) blockers.push("identity_not_stable");
+  if (
+    observation.priceScope !== "reference_only_2650_435" ||
+    !observation.priceScopeEvidence
+  ) blockers.push("reference_scope_not_verified");
+  if (match.level === "ambiguous") blockers.push("ambiguous_catalog_match");
+  const price = observation.price ?? "";
+  const amount = Number(price);
+  if (
+    !isAuchanPriceValid(observation) ||
+    !/^(?:0|[1-9]\d*)\.\d{1,2}$/.test(price) ||
+    !Number.isFinite(amount) ||
+    amount <= 0 ||
+    amount > Number.MAX_SAFE_INTEGER / 100
+  ) blockers.push("price_not_valid_eur");
+  const captured = Date.parse(observation.capturedAt);
+  if (
+    !Number.isFinite(captured) ||
+    captured > now ||
+    captured + AUCHAN_PRICE_FRESHNESS_MS <= now
+  ) blockers.push("price_not_fresh");
+  if (isOutOfStock(observation.availability)) blockers.push("product_unavailable");
+  if (match.method === "source_native_inactive") blockers.push("source_native_product_inactive");
+  return blockers;
+}
+
 export async function buildAuchanDryRunReport(
   adapter: AuchanAdapter,
   catalogReader: AuchanCatalogReader,
@@ -138,9 +196,17 @@ export async function buildAuchanDryRunReport(
   const catalog = await catalogReader.loadAllProducts();
   const { observations, duplicateExternalIds } = uniqueObservations(audit);
   const items: AuchanDryRunItem[] = [];
+  const stableUrls = new Set(
+    audit.stability.details
+      .filter((detail) => detail.stable)
+      .map((detail) => detail.url),
+  );
+  const now = (options.now ?? (() => new Date()))().getTime();
 
   for (const observation of observations) {
     const match = await matchAuchanProduct(observation, catalog, mappings);
+    const identityStable = stableUrls.has(observation.sourceReference);
+    const blockers = importBlockers(observation, match, identityStable, now);
     const priceUsableForProduct =
       (match.level === "exact" || match.level === "high_confidence") &&
       isAuchanPriceValid(observation) &&
@@ -150,11 +216,10 @@ export async function buildAuchanDryRunReport(
       observation,
       match,
       plannedProductAction: plannedAction(match, observation),
+      identityStable,
       priceUsableForProduct,
-      // The public price is explicitly only a reference for one postal code.
-      // No Auchan store is created and this source is not written to the
-      // current RPC, which is authorized for Continente only.
-      priceSafeToImport: false,
+      priceSafeToImport: blockers.length === 0,
+      importBlockers: blockers,
     });
   }
 
@@ -219,7 +284,7 @@ export async function buildAuchanDryRunReport(
         (item) => item.plannedProductAction === "review_existing_inactive",
       ).length,
       pricesUsableForProduct: items.filter((item) => item.priceUsableForProduct).length,
-      pricesSafeToImport: 0,
+      pricesSafeToImport: items.filter((item) => item.priceSafeToImport).length,
       httpErrors: audit.firstPassAttempts.filter((item) => item.outcome === "http_error").length,
       redirects: audit.firstPassAttempts.filter((item) => item.outcome === "redirect").length,
       invalidPages: audit.firstPassAttempts.filter((item) => item.outcome === "invalid_page").length,

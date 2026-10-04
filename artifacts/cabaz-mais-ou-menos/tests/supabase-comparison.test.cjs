@@ -34,6 +34,26 @@ test('produto Continente sem barcode compara pelo ID exato e preserva canal onli
   assert.equal(result.isComplete, true);
   assert.equal('distanceKm' in result, false);
 });
+
+test('a comparação preserva a identidade e o aviso de âmbito da referência Auchan', () => {
+  const store = {
+    id: 'auchan-reference',
+    name: 'Auchan Online · referência 2650-435 (Amadora)',
+    isOnline: true,
+    isRegionalReference: true,
+    referenceScopeNote: 'Referência limitada ao código postal 2650-435.',
+  };
+  const result = compareSupabaseBasket(
+    [{ product: milk, quantity: 1 }],
+    [store],
+    [price(milk.id, store.id, 235)],
+  )[0];
+  assert.equal(result.storeName, store.name);
+  assert.equal(result.isOnline, true);
+  assert.equal(result.isRegionalReference, true);
+  assert.equal(result.referenceScopeNote, store.referenceScopeNote);
+  assert.equal('distanceKm' in result, false);
+});
 const price = (productId, storeId, priceCents, date = capturedAt) => ({
   productId, storeId, priceCents, capturedAt: date, sourceType: 'demo',
 });

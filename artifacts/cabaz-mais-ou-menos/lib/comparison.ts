@@ -26,6 +26,8 @@ export interface StoreComparison {
   readonly storeId: string;
   readonly storeName: string;
   readonly isOnline?: boolean;
+  readonly isRegionalReference?: boolean;
+  readonly referenceScopeNote?: string;
   readonly totalCents: number | null;
   readonly foundProducts: number;
   readonly missingProducts: number;
@@ -160,6 +162,10 @@ export function compareSupabaseBasket(
       latestCapturedAt,
       lines,
       ...(store.isOnline ? { isOnline: true } : {}),
+      ...(store.isRegionalReference ? {
+        isRegionalReference: true,
+        referenceScopeNote: store.referenceScopeNote,
+      } : {}),
     };
   });
   return sortAndCalculateSavings(results);
@@ -414,6 +420,10 @@ export function compareSupabaseBasketWithGroups(
       latestCapturedAt,
       lines: comparedLines,
       ...(store.isOnline ? { isOnline: true } : {}),
+      ...(store.isRegionalReference ? {
+        isRegionalReference: true,
+        referenceScopeNote: store.referenceScopeNote,
+      } : {}),
       ...(includesProductGroups ? { includesProductGroups: true } : {}),
     };
   });

@@ -52,11 +52,21 @@ export function StoreResultCard({
         </View>
       </View>
 
-      {r.isOnline ? (
+      {r.isRegionalReference ? (
+        <View testID={`comparison-reference-${r.storeId}`} style={[styles.pill, { backgroundColor: c.leafSoft, alignSelf: 'flex-start' }]}>
+          <Feather name="globe" size={13} color={c.primary} />
+          <Text style={[styles.pillText, { color: c.primary }]}>Referência regional · 2650-435</Text>
+        </View>
+      ) : r.isOnline ? (
         <View testID={`comparison-online-${r.storeId}`} style={[styles.pill, { backgroundColor: c.leafSoft, alignSelf: 'flex-start' }]}>
           <Feather name="globe" size={13} color={c.primary} />
           <Text style={[styles.pillText, { color: c.primary }]}>Online · preço do canal online</Text>
         </View>
+      ) : null}
+      {r.referenceScopeNote ? (
+        <Text testID={`comparison-reference-scope-${r.storeId}`} style={[styles.note, { color: c.mutedForeground }]}>
+          {r.referenceScopeNote}
+        </Text>
       ) : null}
 
       <View style={styles.totalRow}>
