@@ -175,6 +175,37 @@ function importBlockers(
   return blockers;
 }
 
+export async function buildAuchanDryRunItems(
+  observations: readonly AuchanProductObservation[],
+  stableUrls: ReadonlySet<string>,
+  catalogReader: AuchanCatalogReader,
+  mappings: ContinenteMappingRepository,
+  now = new Date(),
+): Promise<AuchanDryRunItem[]> {
+  const catalog = await catalogReader.loadAllProducts();
+  const items: AuchanDryRunItem[] = [];
+  for (const observation of observations) {
+    const match = await matchAuchanProduct(observation, catalog, mappings);
+    const identityStable = stableUrls.has(observation.sourceReference);
+    const blockers = importBlockers(observation, match, identityStable, now.getTime());
+    const priceUsableForProduct =
+      (match.level === "exact" || match.level === "high_confidence") &&
+      isAuchanPriceValid(observation) &&
+      observation.externalProductId !== null &&
+      !isOutOfStock(observation.availability);
+    items.push({
+      observation,
+      match,
+      plannedProductAction: plannedAction(match, observation),
+      identityStable,
+      priceUsableForProduct,
+      priceSafeToImport: blockers.length === 0,
+      importBlockers: blockers,
+    });
+  }
+  return items;
+}
+
 export async function buildAuchanDryRunReport(
   adapter: AuchanAdapter,
   catalogReader: AuchanCatalogReader,

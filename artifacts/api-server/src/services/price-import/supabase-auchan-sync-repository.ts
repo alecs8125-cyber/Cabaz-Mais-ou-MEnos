@@ -39,6 +39,25 @@ export interface AuchanStoredPrice {
   readonly verificationStatus: string;
 }
 
+export interface AuchanRefreshPriceCandidate {
+  readonly sku: string;
+  readonly sourceReference: string;
+  readonly capturedAt: string;
+  readonly validUntil: string | null;
+  readonly price: string;
+  readonly productId: string;
+}
+
+export interface AuchanDailyCheckpointRow {
+  readonly source_type: "auchan";
+  readonly cursor_value: string | null;
+  readonly last_attempt_at: string | null;
+  readonly last_success_at: string | null;
+  readonly last_error: string | null;
+  readonly metadata: Row;
+  readonly updated_at: string;
+}
+
 export interface AuchanProductWrite {
   readonly product: ContinenteCatalogProduct;
   /** False when a GET reconciled an ambiguous/duplicate acknowledgement. */
@@ -47,6 +66,7 @@ export interface AuchanProductWrite {
 
 const PRODUCT_COLUMNS = "id,name,brand,barcode,unit,active,source_type,external_id";
 const AUCHAN_REFERENCE_EXTERNAL_ID = "reference:2650-435";
+const AUCHAN_PRICE_EXTERNAL_ID_PREFIX = `${AUCHAN_REFERENCE_EXTERNAL_ID}:`;
 const AUCHAN_PRICE_RPC = "upsert_auchan_reference_price_with_history";
 const REQUIRED_TABLE_COLUMNS: Readonly<Record<string, readonly string[]>> = {
   products: [
@@ -188,6 +208,45 @@ export class SupabaseAuchanSyncRepository {
     return this.preflightPromise;
   }
 
+  async preflightDailySync(): Promise<string[]> {
+    const schema = await this.readClient.getOpenApiSchema();
+    const definitions = isRecord(schema.definitions) ? schema.definitions : {};
+    const paths = isRecord(schema.paths) ? schema.paths : {};
+    const blockers: string[] = [];
+    const checkpoint = definitions.source_sync_state;
+    if (!isRecord(checkpoint) || !isRecord(checkpoint.properties)) {
+      blockers.push("Missing existing public.source_sync_state table for Auchan checkpointing.");
+    } else {
+      for (const column of [
+        "source_type", "cursor_value", "last_attempt_at", "last_success_at",
+        "last_error", "metadata", "updated_at",
+      ]) {
+        if (!Object.hasOwn(checkpoint.properties, column)) {
+          blockers.push(`Missing source_sync_state.${column}.`);
+        }
+      }
+    }
+    const checkpointPath = paths["/source_sync_state"];
+    if (
+      !isRecord(checkpointPath) ||
+      !isRecord(checkpointPath.get) ||
+      !isRecord(checkpointPath.post) ||
+      !isRecord(checkpointPath.patch)
+    ) blockers.push("The existing source_sync_state GET/POST/PATCH contract is unavailable.");
+    const prices = definitions.prices;
+    if (!isRecord(prices) || !isRecord(prices.properties)) {
+      blockers.push("Missing public.prices for Auchan refresh ordering.");
+    } else {
+      for (const column of [
+        "source_type", "external_id", "source_reference", "captured_at",
+        "valid_until", "price", "product_id", "store_id",
+      ]) {
+        if (!Object.hasOwn(prices.properties, column)) blockers.push(`Missing prices.${column}.`);
+      }
+    }
+    return blockers;
+  }
+
   private async runPreflight(): Promise<AuchanPreflight> {
     const blockers: string[] = [];
     const schema = await this.readClient.getOpenApiSchema();
@@ -290,10 +349,100 @@ export class SupabaseAuchanSyncRepository {
   }
 
   private async rows(
-    table: "products" | "stores" | "external_product_mappings" | "prices" | "price_history",
+    table:
+      | "products"
+      | "stores"
+      | "external_product_mappings"
+      | "prices"
+      | "price_history"
+      | "source_sync_state",
     query: Readonly<Record<string, string>>,
   ): Promise<readonly Row[]> {
     return this.readClient.getRows(table, query);
+  }
+
+  async loadDailyCheckpoint(): Promise<AuchanDailyCheckpointRow | null> {
+    const rows = await this.rows("source_sync_state", {
+      select: "source_type,cursor_value,last_attempt_at,last_success_at,last_error,metadata,updated_at",
+      source_type: "eq.auchan",
+      limit: "2",
+    });
+    if (rows.length > 1) {
+      throw new Error("Multiple Auchan sync checkpoints; refusing an arbitrary resume state.");
+    }
+    return rows.length ? this.parseDailyCheckpoint(rows[0]!) : null;
+  }
+
+  async insertDailyCheckpoint(
+    fields: Omit<AuchanDailyCheckpointRow, "updated_at"> & { readonly updated_at?: string },
+  ): Promise<AuchanDailyCheckpointRow> {
+    if (fields.source_type !== "auchan" || !isRecord(fields.metadata)) {
+      throw new Error("Only a valid source_type=auchan checkpoint may be inserted.");
+    }
+    const result = await this.mutateCheckpoint(
+      "POST",
+      { ...fields, updated_at: fields.updated_at ?? new Date().toISOString() },
+    );
+    if (!Array.isArray(result) || result.length !== 1 || !isRecord(result[0])) {
+      throw new Error("Auchan daily checkpoint insertion could not be confirmed.");
+    }
+    return this.parseDailyCheckpoint(result[0]);
+  }
+
+  async updateDailyCheckpoint(
+    expectedUpdatedAt: string,
+    fields: Omit<AuchanDailyCheckpointRow, "updated_at"> & { readonly updated_at?: string },
+  ): Promise<AuchanDailyCheckpointRow> {
+    if (fields.source_type !== "auchan" || !isRecord(fields.metadata)) {
+      throw new Error("Only a valid source_type=auchan checkpoint may be updated.");
+    }
+    const result = await this.mutateCheckpoint(
+      "PATCH",
+      { ...fields, updated_at: fields.updated_at ?? new Date().toISOString() },
+      { source_type: "eq.auchan", updated_at: `eq.${expectedUpdatedAt}` },
+    );
+    if (!Array.isArray(result) || result.length !== 1 || !isRecord(result[0])) {
+      throw new Error("Auchan checkpoint changed concurrently; refusing to overwrite it.");
+    }
+    return this.parseDailyCheckpoint(result[0]);
+  }
+
+  async loadDailyPriceCandidates(storeId: string): Promise<AuchanRefreshPriceCandidate[]> {
+    const result: AuchanRefreshPriceCandidate[] = [];
+    for (let offset = 0; offset < 100_000; offset += 500) {
+      const rows = await this.rows("prices", {
+        select: "external_id,source_reference,captured_at,valid_until,price,product_id",
+        source_type: "eq.auchan",
+        store_id: `eq.${storeId}`,
+        order: "valid_until.asc.nullsfirst,captured_at.asc,external_id.asc",
+        limit: "500",
+        offset: String(offset),
+      });
+      for (const row of rows) {
+        const scopedExternalId = text(row.external_id);
+        const sku = scopedExternalId?.startsWith(AUCHAN_PRICE_EXTERNAL_ID_PREFIX)
+          ? scopedExternalId.slice(AUCHAN_PRICE_EXTERNAL_ID_PREFIX.length)
+          : null;
+        const sourceReference = text(row.source_reference);
+        const capturedAt = text(row.captured_at);
+        const price = amountText(row.price);
+        const productId = text(row.product_id);
+        if (
+          !sku || !/^[1-9]\d*$/.test(sku) || !sourceReference ||
+          !capturedAt || !price || !productId
+        ) throw new Error("An Auchan reference price row has invalid refresh fields.");
+        result.push({
+          sku,
+          sourceReference,
+          capturedAt,
+          validUntil: text(row.valid_until),
+          price,
+          productId,
+        });
+      }
+      if (rows.length < 500) return result;
+    }
+    throw new Error("Auchan price candidates exceeded their explicit scan bound.");
   }
 
   async findReferenceStore(): Promise<AuchanReferenceStore | null> {
@@ -424,6 +573,45 @@ export class SupabaseAuchanSyncRepository {
     return data;
   }
 
+  private async mutateCheckpoint(
+    method: "POST" | "PATCH",
+    body: Row,
+    query: Readonly<Record<string, string>> = {},
+  ): Promise<unknown> {
+    if (!this.commitEnabled) throw new Error("Auchan dry-run forbids database mutations.");
+    if (body.source_type !== "auchan") {
+      throw new Error("Checkpoint writes are restricted to source_type=auchan.");
+    }
+    const url = new URL("/rest/v1/source_sync_state", this.baseUrl);
+    for (const [key, value] of Object.entries(query)) url.searchParams.set(key, value);
+    let response: Response;
+    try {
+      response = await this.fetchImpl(url, {
+        method,
+        headers: { ...this.headers, Prefer: "return=representation" },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(15_000),
+      });
+    } catch (cause) {
+      throw cause;
+    }
+    let data: unknown = null;
+    if (response.status !== 204) {
+      try {
+        data = await response.json();
+      } catch {
+        if (response.ok) throw new Error("Checkpoint acknowledgement was not valid JSON.");
+      }
+    }
+    if (!response.ok) {
+      const code = isRecord(data) && typeof data.code === "string"
+        ? data.code
+        : "request_failed";
+      throw new AuchanDatabaseError(response.status, code);
+    }
+    return data;
+  }
+
   async createNative(fields: Row): Promise<AuchanProductWrite> {
     if (!this.commitEnabled) throw new Error("Auchan dry-run forbids database mutations.");
     const externalId = text(fields.external_id);
@@ -489,6 +677,26 @@ export class SupabaseAuchanSyncRepository {
     return this.mutate(`/rpc/${AUCHAN_PRICE_RPC}`, args);
   }
 
+  async findLatestReferencePrice(
+    productId: string,
+    storeId: string,
+    externalProductId: string,
+  ): Promise<AuchanStoredPrice | null> {
+    const rows = await this.rows("prices", {
+      select: "id,product_id,store_id,price,currency,captured_at,valid_until,source_type,source_reference,verification_status",
+      source_type: "eq.auchan",
+      product_id: `eq.${productId}`,
+      store_id: `eq.${storeId}`,
+      external_id: `eq.${AUCHAN_PRICE_EXTERNAL_ID_PREFIX}${externalProductId}`,
+      order: "captured_at.desc",
+      limit: "2",
+    });
+    if (rows.length > 1) {
+      throw new Error("Multiple Auchan prices exist for one product/store/external identity.");
+    }
+    return rows.length ? this.parseStoredPrice(rows[0]!) : null;
+  }
+
   async findReferencePrice(
     productId: string,
     storeId: string,
@@ -506,7 +714,10 @@ export class SupabaseAuchanSyncRepository {
     });
     if (rows.length > 1) throw new Error("Multiple Auchan prices match one captured reference observation.");
     if (!rows.length) return null;
-    const row = rows[0]!;
+    return this.parseStoredPrice(rows[0]!);
+  }
+
+  private parseStoredPrice(row: Row): AuchanStoredPrice {
     const id = text(row.id);
     const returnedProductId = text(row.product_id);
     const returnedStoreId = text(row.store_id);
@@ -555,5 +766,24 @@ export class SupabaseAuchanSyncRepository {
       Number.isFinite(Date.parse(row.captured_at)) &&
       Date.parse(row.captured_at) === Date.parse(capturedAt)
     );
+  }
+
+  private parseDailyCheckpoint(row: Row): AuchanDailyCheckpointRow {
+    const updatedAt = text(row.updated_at);
+    if (
+      row.source_type !== "auchan" ||
+      !isRecord(row.metadata) ||
+      !updatedAt ||
+      !Number.isFinite(Date.parse(updatedAt))
+    ) throw new Error("The saved Auchan daily checkpoint has an invalid shape.");
+    return {
+      source_type: "auchan",
+      cursor_value: text(row.cursor_value),
+      last_attempt_at: text(row.last_attempt_at),
+      last_success_at: text(row.last_success_at),
+      last_error: text(row.last_error),
+      metadata: row.metadata,
+      updated_at: updatedAt,
+    };
   }
 }

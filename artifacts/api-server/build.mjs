@@ -39,6 +39,10 @@ async function buildAll() {
         artifactDir,
         "src/price-import-auchan-sync.ts",
       ),
+      "price-import-auchan-sync-daily": path.resolve(
+        artifactDir,
+        "src/price-import-auchan-sync-daily.ts",
+      ),
     },
     platform: "node",
     bundle: true,

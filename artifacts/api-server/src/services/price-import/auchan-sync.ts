@@ -30,6 +30,11 @@ export interface AuchanSyncRepository {
   createNative(fields: Row): Promise<AuchanProductWrite>;
   createMapping(fields: Row): Promise<boolean>;
   upsertReferencePrice(args: Row): Promise<unknown>;
+  findLatestReferencePrice(
+    productId: string,
+    storeId: string,
+    externalProductId: string,
+  ): Promise<AuchanStoredPrice | null>;
   findReferencePrice(
     productId: string,
     storeId: string,
@@ -60,8 +65,14 @@ export interface AuchanSyncReport {
     existingReused: number;
     nativePlanned: number;
     mappingsCreated: number;
+    mappingsReused: number;
     pricesWritten: number;
+    pricesCreated: number;
+    pricesUpdated: number;
+    pricesUnchanged: number;
+    priceChanges: number;
     historyRowsConfirmed: number | null;
+    historyRowsSuppressed: number;
     errors: number;
   };
   items: {
@@ -70,6 +81,7 @@ export interface AuchanSyncReport {
     productId: string | null;
     method: string | null;
     action: string;
+    priceAction: "created" | "changed" | "unchanged" | null;
     rpcAcknowledgementResolved: boolean;
     error: string | null;
   }[];
@@ -79,6 +91,7 @@ interface Resolution {
   readonly product: ContinenteCatalogProduct | null;
   readonly method: string;
   readonly confidence: number;
+  readonly mappingPresent: boolean;
 }
 
 const DISPLAY_STORE_NAME = "Auchan Online · referência 2650-435 (Amadora)";
@@ -198,13 +211,23 @@ async function resolveProduct(
     }
     const product = await repository.findProduct(mapping.productId);
     if (!product?.active) throw new Error("The verified Auchan mapping points to a missing or inactive product.");
-    return { product, method: mapping.matchMethod, confidence: mapping.confidence };
+    return {
+      product,
+      method: mapping.matchMethod,
+      confidence: mapping.confidence,
+      mappingPresent: true,
+    };
   }
 
   if (sourceProducts.length === 1) {
     const product = sourceProducts[0]!;
     if (!product.active) throw new Error("The exact source-native Auchan product is inactive.");
-    return { product, method: "source_native_exact", confidence: 1 };
+    return {
+      product,
+      method: "source_native_exact",
+      confidence: 1,
+      mappingPresent: false,
+    };
   }
 
   if (
@@ -229,12 +252,18 @@ async function resolveProduct(
       product,
       method: currentMatch.method ?? "catalog_match",
       confidence: currentMatch.confidence,
+      mappingPresent: false,
     };
   }
   if (item.match.level === "exact" || item.match.level === "high_confidence") {
     throw new Error("The dry-run catalog match could not be revalidated.");
   }
-  return { product: null, method: "source_native", confidence: 1 };
+  return {
+    product: null,
+    method: "source_native",
+    confidence: 1,
+    mappingPresent: false,
+  };
 }
 
 function priceRpcArguments(
@@ -273,8 +302,14 @@ function newReport(
       existingReused: 0,
       nativePlanned: 0,
       mappingsCreated: 0,
+      mappingsReused: 0,
       pricesWritten: 0,
+      pricesCreated: 0,
+      pricesUpdated: 0,
+      pricesUnchanged: 0,
+      priceChanges: 0,
       historyRowsConfirmed: repository.commitEnabled ? 0 : null,
+      historyRowsSuppressed: 0,
       errors: 0,
     },
     items: items.map((item) => ({
@@ -283,6 +318,7 @@ function newReport(
       productId: null,
       method: null,
       action: "pending",
+      priceAction: null,
       rpcAcknowledgementResolved: false,
       error: null,
     })),
@@ -330,6 +366,9 @@ export async function syncAuchanObservations(
         report.counts.existingReused += 1;
       } else if (!resolution.product && !repository.commitEnabled) {
         report.counts.nativePlanned += 1;
+      }
+      if (!repository.commitEnabled && resolution.mappingPresent) {
+        report.counts.mappingsReused += 1;
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unexpected pre-commit error.";
@@ -406,6 +445,7 @@ export async function syncAuchanObservations(
           verified: true,
         });
         if (created) report.counts.mappingsCreated += 1;
+        else report.counts.mappingsReused += 1;
       } else if (
         mappings[0]!.productId !== target.id ||
         mappings[0]!.sourceType !== "auchan" ||
@@ -413,7 +453,30 @@ export async function syncAuchanObservations(
         !mappings[0]!.verified
       ) {
         throw new Error("The persisted mapping changed to a conflicting Auchan product.");
+      } else {
+        report.counts.mappingsReused += 1;
       }
+
+      const storeId = report.referenceStore.id!;
+      const expectedPrice = normalizeAmount(item.observation.price!);
+      const previousPrice = await repository.findLatestReferencePrice(
+        target.id,
+        storeId,
+        sku,
+      );
+      if (previousPrice && (
+        previousPrice.productId !== target.id ||
+        previousPrice.storeId !== storeId ||
+        previousPrice.sourceType !== "auchan" ||
+        previousPrice.currency !== "EUR" ||
+        !Number.isFinite(Number(previousPrice.price))
+      )) throw new Error("The existing Auchan price identity or reference scope is invalid.");
+      const priceAction: "created" | "changed" | "unchanged" = !previousPrice
+        ? "created"
+        : normalizeAmount(previousPrice.price) === expectedPrice
+        ? "unchanged"
+        : "changed";
+      row.priceAction = priceAction;
 
       let rpcError: string | null = null;
       try {
@@ -424,8 +487,7 @@ export async function syncAuchanObservations(
         rpcError = error instanceof Error ? error.message : "Unknown RPC acknowledgement failure.";
       }
 
-      const storeId = report.referenceStore.id!;
-      const expectedPrice = normalizeAmount(item.observation.price!);
+      const historyExpected = priceAction !== "unchanged";
       const [storedPrice, historyExists] = await Promise.all([
         repository.findReferencePrice(
           target.id,
@@ -455,20 +517,35 @@ export async function syncAuchanObservations(
         storedPrice.validUntil !== null &&
         Number.isFinite(Date.parse(storedPrice.validUntil)) &&
         Date.parse(storedPrice.validUntil) === expectedCapturedAt + AUCHAN_PRICE_FRESHNESS_MS;
-      if (!storedPriceMatches || !historyExists) {
+      if (!storedPriceMatches || historyExists !== historyExpected) {
         row.action = "price_readback_failed";
         row.error = rpcError
-          ? `RPC acknowledgement was uncertain and GET reconciliation did not confirm price and history: ${rpcError}`
-          : "GET reconciliation did not confirm the expected verified price and history; no retry was attempted.";
+          ? `RPC acknowledgement was uncertain and GET reconciliation did not confirm the expected price/history behavior: ${rpcError}`
+          : "GET reconciliation did not confirm the expected price/history behavior; no retry was attempted.";
         report.counts.errors += 1;
         stopAfterError = true;
         continue;
       }
       report.counts.pricesWritten += 1;
-      if (report.counts.historyRowsConfirmed !== null) {
+      if (priceAction === "created") {
+        report.counts.pricesCreated += 1;
+      } else {
+        report.counts.pricesUpdated += 1;
+      }
+      if (priceAction === "changed") {
+        report.counts.priceChanges += 1;
+      } else if (priceAction === "unchanged") {
+        report.counts.pricesUnchanged += 1;
+        report.counts.historyRowsSuppressed += 1;
+      }
+      if (historyExpected && report.counts.historyRowsConfirmed !== null) {
         report.counts.historyRowsConfirmed += 1;
       }
-      row.action = "price_and_history_confirmed";
+      row.action = priceAction === "unchanged"
+        ? "price_refreshed_without_duplicate_history"
+        : priceAction === "changed"
+        ? "price_changed_with_history_confirmed"
+        : "price_and_history_confirmed";
       row.rpcAcknowledgementResolved = rpcError !== null;
       if (rpcError) row.error = `RPC acknowledgement recovered by GET verification: ${rpcError}`;
     } catch (error) {

@@ -13,6 +13,7 @@ const ALLOWED_TABLES = new Set<SupabaseReadTable>([
   "external_product_mappings",
   "prices",
   "price_history",
+  "source_sync_state",
 ]);
 
 export interface SupabaseAuchanReadConfig {

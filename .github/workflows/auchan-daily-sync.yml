@@ -1,0 +1,86 @@
+name: Auchan daily sync
+
+on:
+  schedule:
+    - cron: "20 5 * * *"
+      timezone: "Europe/Lisbon"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Preview without writing prices."
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: auchan-daily-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Refresh Auchan Amadora reference prices
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Restrict manual runs to the default branch
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          if [[ "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ]]; then
+            echo "Manual syncs must use the repository's default branch." >&2
+            exit 1
+          fi
+
+      - name: Check required secrets without printing values
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          url_present=false
+          service_key_present=false
+          [[ -n "${SUPABASE_URL:-}" ]] && url_present=true
+          [[ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ]] && service_key_present=true
+          printf 'SUPABASE_URL configured: %s\n' "$url_present"
+          printf 'SUPABASE_SERVICE_ROLE_KEY configured: %s\n' "$service_key_present"
+          if [[ "$url_present" != true || "$service_key_present" != true ]]; then
+            echo "Add the missing repository secret(s) before running this workflow." >&2
+            exit 1
+          fi
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.1
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install API server dependencies
+        run: pnpm install --frozen-lockfile --filter '@workspace/api-server...'
+
+      - name: Run daily sync
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "schedule" || "${DRY_RUN,,}" == "false" ]]; then
+            mode_flag="--commit"
+          else
+            mode_flag="--dry-run"
+          fi
+
+          pnpm --filter @workspace/api-server run sync:auchan:scheduled -- \
+            --limit=100 --resume "$mode_flag"

@@ -145,6 +145,82 @@ test("adapter lê sitemap e 2 produtos em série por GET, relê IDs e nunca envi
   }
 });
 
+test("Auchan sitemap daily omite SKUs conhecidos e o bookmark cobre só URLs realmente lidos", async () => {
+  const calls = [];
+  const productUrls = [
+    "https://www.auchan.pt/pt/alimentacao/produto/10.html",
+    "https://www.auchan.pt/pt/alimentacao/produto/105.html",
+    "https://www.auchan.pt/pt/alimentacao/produto/200.html",
+  ];
+  const fetchImpl = async (input, init) => {
+    const url = new URL(String(input));
+    calls.push({ url, init });
+    if (url.pathname === "/robots.txt") {
+      return response("User-agent: *\nAllow: /pt/\nSitemap: https://www.auchan.pt/sitemap_index.xml");
+    }
+    if (url.pathname === "/sitemap_index.xml") {
+      return response("<sitemapindex><sitemap><loc>https://www.auchan.pt/sitemap_0-product.xml</loc></sitemap></sitemapindex>");
+    }
+    if (url.pathname === "/sitemap_0-product.xml") {
+      return response(`<urlset>${productUrls.map((value) => `<url><loc>${value}</loc></url>`).join("")}</urlset>`);
+    }
+    const id = /\/(\d+)\.html$/.exec(url.pathname)?.[1];
+    if (id) return response(productHtml({ sku: id, name: `PRODUTO TESTE ${id} 400G` }));
+    throw new Error(`Unexpected GET ${url}`);
+  };
+  const adapter = new AuchanAdapter({
+    fetchImpl,
+    requestDelayMs: 0,
+    maxProductPageRequests: 200,
+    now: () => new Date("2026-10-04T10:00:00.000Z"),
+  });
+  const plan = await adapter.discoverProductSitemaps();
+  const batch = await adapter.runSitemapBatch(
+    plan.productSitemaps[0],
+    0,
+    3,
+    1,
+    new Set(["10"]),
+    1,
+  );
+  assert.deepEqual(batch.selectedUrls, productUrls.slice(0, 2));
+  assert.equal(batch.skippedKnown, 1);
+  assert.equal(batch.firstPassAttempts.length, 1);
+  assert.equal(batch.firstPassAttempts[0].observation.externalProductId, "105");
+  assert.equal(batch.nextOffset, 2);
+  assert.equal(batch.totalUrls, 3);
+  assert.equal(batch.productPageRequests, 2);
+  assert.equal(batch.stability.stable, 1);
+  assert.equal(calls.filter(({ url }) => url.pathname.endsWith(".html")).length, 2);
+  for (const { init } of calls) {
+    assert.equal(init.method, "GET");
+    assert.equal(init.redirect, "manual");
+    assert.equal(Object.keys(init.headers).some((key) => key.toLowerCase() === "cookie"), false);
+  }
+});
+
+test("daily classifica páginas 404/410 como entradas ausentes que podem ser ignoradas", async () => {
+  const fetchImpl = async (input) => {
+    const url = new URL(String(input));
+    if (url.pathname === "/robots.txt") {
+      return response("User-agent: *\nAllow: /pt/\nSitemap: https://www.auchan.pt/sitemap_index.xml");
+    }
+    if (url.pathname === "/sitemap_index.xml") {
+      return response("<sitemapindex><sitemap><loc>https://www.auchan.pt/sitemap_0-product.xml</loc></sitemap></sitemapindex>");
+    }
+    if (url.pathname === "/sitemap_0-product.xml") {
+      return response("<urlset><url><loc>https://www.auchan.pt/pt/alimentacao/produto/10.html</loc></url></urlset>");
+    }
+    return response("not found", 404);
+  };
+  const audit = await new AuchanAdapter({
+    fetchImpl,
+    requestDelayMs: 0,
+  }).runAudit(2, 1);
+  assert.equal(audit.firstPassAttempts[0].outcome, "invalid_page");
+  assert.equal(audit.firstPassAttempts[0].error, "product_page_missing_http_404");
+});
+
 test("adapter para na primeira resposta anti-bot e não tenta contornar", async () => {
   const calls = [];
   const fetchImpl = async (input, init) => {
@@ -398,6 +474,153 @@ test("Supabase Auchan client só permite GET e mapping lookup filtrado por Aucha
   assert.equal(calls[0].url.searchParams.get("external_product_id"), "eq.1662");
 });
 
+test("checkpoint diário usa source_type=auchan e atualiza com comparação otimista", async () => {
+  const calls = [];
+  const existing = {
+    source_type: "auchan",
+    cursor_value: "discovery:1:0:8",
+    last_attempt_at: "2026-10-04T10:00:00.000Z",
+    last_success_at: "2026-10-03T10:00:00.000Z",
+    last_error: null,
+    metadata: { dailySyncVersion: 1, phase: "discovery" },
+    updated_at: "2026-10-04T10:00:00.000Z",
+  };
+  const fetchImpl = async (input, init) => {
+    const url = new URL(String(input));
+    calls.push({ url, init });
+    if (init.method === "GET") {
+      assert.equal(url.searchParams.get("source_type"), "eq.auchan");
+      return response(JSON.stringify([existing]), 200, { "content-type": "application/json" });
+    }
+    assert.equal(url.pathname, "/rest/v1/source_sync_state");
+    assert.equal(JSON.parse(init.body).source_type, "auchan");
+    return response(JSON.stringify([{
+      ...JSON.parse(init.body),
+      updated_at: "2026-10-04T10:05:00.000Z",
+    }]), 200, { "content-type": "application/json" });
+  };
+  const repository = new SupabaseAuchanSyncRepository(true, {
+    SUPABASE_URL: "https://example.supabase.co",
+    EXPO_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
+    SUPABASE_SERVICE_ROLE_KEY: "sb_secret_test",
+  }, fetchImpl);
+  const loaded = await repository.loadDailyCheckpoint();
+  assert.equal(loaded.source_type, "auchan");
+  assert.equal(loaded.cursor_value, existing.cursor_value);
+  const updated = await repository.updateDailyCheckpoint(existing.updated_at, {
+    source_type: "auchan",
+    cursor_value: "discovery:1:0:9",
+    last_attempt_at: "2026-10-04T10:05:00.000Z",
+    last_success_at: "2026-10-03T10:00:00.000Z",
+    last_error: null,
+    metadata: { dailySyncVersion: 1, phase: "discovery" },
+  });
+  assert.equal(updated.cursor_value, "discovery:1:0:9");
+  const patchCall = calls.find(({ init }) => init.method === "PATCH");
+  assert.equal(patchCall.url.searchParams.get("source_type"), "eq.auchan");
+  assert.equal(patchCall.url.searchParams.get("updated_at"), `eq.${existing.updated_at}`);
+  assert.equal(calls.length, 2);
+});
+
+test("daily refresher resolves SKU only from the exact Amadora-scoped price identity", async () => {
+  const calls = [];
+  const fetchImpl = async (input, init) => {
+    const url = new URL(String(input));
+    calls.push({ url, init });
+    return response(JSON.stringify([{
+      external_id: "reference:2650-435:1662",
+      source_reference: "https://www.auchan.pt/pt/alimentacao/produto/1662.html",
+      captured_at: "2026-10-04T10:00:00.000Z",
+      valid_until: "2026-10-05T22:00:00.000Z",
+      price: "2.35",
+      product_id: "a5a2c1d2-0000-4000-8000-000000000001",
+    }]), 200, { "content-type": "application/json" });
+  };
+  const repository = new SupabaseAuchanSyncRepository(false, {
+    SUPABASE_URL: "https://example.supabase.co",
+    EXPO_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
+    SUPABASE_SERVICE_ROLE_KEY: "sb_secret_test",
+  }, fetchImpl);
+
+  assert.deepEqual(await repository.loadDailyPriceCandidates(
+    "1fb7c654-65df-48e0-9615-95d0d5cba800",
+  ), [{
+    sku: "1662",
+    sourceReference: "https://www.auchan.pt/pt/alimentacao/produto/1662.html",
+    capturedAt: "2026-10-04T10:00:00.000Z",
+    validUntil: "2026-10-05T22:00:00.000Z",
+    price: "2.35",
+    productId: "a5a2c1d2-0000-4000-8000-000000000001",
+  }]);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[0].url.searchParams.get("source_type"), "eq.auchan");
+  assert.equal(
+    calls[0].url.searchParams.get("store_id"),
+    "eq.1fb7c654-65df-48e0-9615-95d0d5cba800",
+  );
+});
+
+test("daily refresher rejects price identities outside the exact Amadora namespace", async () => {
+  const fetchImpl = async () => response(JSON.stringify([{
+    external_id: "reference:2650-434:1662",
+    source_reference: "https://www.auchan.pt/pt/alimentacao/produto/1662.html",
+    captured_at: "2026-10-04T10:00:00.000Z",
+    valid_until: null,
+    price: "2.35",
+    product_id: "a5a2c1d2-0000-4000-8000-000000000001",
+  }]), 200, { "content-type": "application/json" });
+  const repository = new SupabaseAuchanSyncRepository(false, {
+    SUPABASE_URL: "https://example.supabase.co",
+    EXPO_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
+    SUPABASE_SERVICE_ROLE_KEY: "sb_secret_test",
+  }, fetchImpl);
+
+  await assert.rejects(
+    () => repository.loadDailyPriceCandidates(
+      "1fb7c654-65df-48e0-9615-95d0d5cba800",
+    ),
+    /invalid refresh fields/i,
+  );
+});
+
+test("existing reference-price lookup uses the store-scoped external identity", async () => {
+  const calls = [];
+  const fetchImpl = async (input, init) => {
+    const url = new URL(String(input));
+    calls.push({ url, init });
+    return response(JSON.stringify([{
+      id: "price-1",
+      product_id: "a5a2c1d2-0000-4000-8000-000000000001",
+      store_id: "1fb7c654-65df-48e0-9615-95d0d5cba800",
+      price: "2.35",
+      currency: "EUR",
+      captured_at: "2026-10-04T10:00:00.000Z",
+      valid_until: "2026-10-05T22:00:00.000Z",
+      source_type: "auchan",
+      source_reference: "https://www.auchan.pt/pt/alimentacao/produto/1662.html",
+      verification_status: "verified",
+    }]), 200, { "content-type": "application/json" });
+  };
+  const repository = new SupabaseAuchanSyncRepository(false, {
+    SUPABASE_URL: "https://example.supabase.co",
+    EXPO_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
+    SUPABASE_SERVICE_ROLE_KEY: "sb_secret_test",
+  }, fetchImpl);
+
+  const price = await repository.findLatestReferencePrice(
+    "a5a2c1d2-0000-4000-8000-000000000001",
+    "1fb7c654-65df-48e0-9615-95d0d5cba800",
+    "1662",
+  );
+  assert.equal(price?.id, "price-1");
+  assert.equal(
+    calls[0].url.searchParams.get("external_id"),
+    "eq.reference:2650-435:1662",
+  );
+  assert.equal(calls[0].init.method, "GET");
+});
+
 function syncItem(overrides = {}) {
   const observation = {
     sourceType: "auchan",
@@ -442,13 +665,13 @@ function syncItem(overrides = {}) {
 function syncRepository({ commitEnabled = false, rpcAcknowledgementFails = false, blockers = [] } = {}) {
   const storeId = "1fb7c654-65df-48e0-9615-95d0d5cba800";
   const productId = "a5a2c1d2-0000-4000-8000-000000000001";
-  const capturedAt = "2026-10-04T10:00:00.000Z";
   const state = {
     writes: [],
     mappings: [],
     products: [],
     price: null,
-    history: false,
+    historyCapturedAt: null,
+    historyPrice: null,
     rpcCalls: [],
   };
   const repo = {
@@ -498,24 +721,34 @@ function syncRepository({ commitEnabled = false, rpcAcknowledgementFails = false
     upsertReferencePrice: async (args) => {
       state.writes.push(["price", args]);
       state.rpcCalls.push(args);
+      const nextPrice = Number(args.p_price).toFixed(2);
+      const priceChanged = state.price?.price !== nextPrice;
       state.price = {
         id: "price-row",
         productId: args.p_product_id,
         storeId,
-        price: "2.35",
+        price: nextPrice,
         currency: "EUR",
-        capturedAt,
-        validUntil: "2026-10-05T22:00:00.000Z",
+        capturedAt: args.p_captured_at,
+        validUntil: new Date(Date.parse(args.p_captured_at) + 36 * 60 * 60 * 1000).toISOString(),
         sourceType: "auchan",
         sourceReference: args.p_source_reference,
         verificationStatus: "verified",
       };
-      state.history = true;
+      if (priceChanged) {
+        state.historyCapturedAt = args.p_captured_at;
+        state.historyPrice = nextPrice;
+      }
       if (rpcAcknowledgementFails) throw new Error("simulated lost RPC acknowledgement");
       return { id: "price-row" };
     },
-    findReferencePrice: async () => state.price,
-    hasReferencePriceHistory: async () => state.history,
+    findLatestReferencePrice: async () => state.price,
+    findReferencePrice: async (_productId, _storeId, sourceReference, at) =>
+      state.price?.sourceReference === sourceReference && state.price?.capturedAt === at
+        ? state.price
+        : null,
+    hasReferencePriceHistory: async (_productId, _storeId, price, at) =>
+      state.historyPrice === price && state.historyCapturedAt === at,
   };
   return repo;
 }
@@ -546,6 +779,7 @@ test("Auchan commit usa produto nativo, mapping verificado e GET para confirmar 
   assert.equal(report.counts.sourceNativeCreated, 1);
   assert.equal(report.counts.mappingsCreated, 1);
   assert.equal(report.counts.pricesWritten, 1);
+  assert.equal(report.counts.pricesCreated, 1);
   assert.equal(report.counts.historyRowsConfirmed, 1);
   assert.equal(report.counts.errors, 0);
   assert.equal(report.items[0].action, "price_and_history_confirmed");
@@ -561,6 +795,59 @@ test("Auchan commit usa produto nativo, mapping verificado e GET para confirmar 
   assert.equal(repo.state.writes[2][1].p_product_id, "a5a2c1d2-0000-4000-8000-000000000001");
   assert.equal(repo.state.writes[2][1].p_external_product_id, "1662");
   assert.equal(repo.state.writes[2][1].p_source_reference, syncItem().observation.sourceReference);
+});
+
+test("Auchan preço igual renova 36 horas sem criar histórico duplicado", async () => {
+  const repo = syncRepository({ commitEnabled: true });
+  const first = await syncAuchanObservations(
+    [syncItem()],
+    repo,
+    new Date("2026-10-04T10:00:00.000Z"),
+  );
+  const originalHistoryAt = repo.state.historyCapturedAt;
+  const refreshedAt = "2026-10-04T11:00:00.000Z";
+  const second = await syncAuchanObservations(
+    [syncItem({ capturedAt: refreshedAt })],
+    repo,
+    new Date(refreshedAt),
+  );
+  assert.equal(first.counts.historyRowsConfirmed, 1);
+  assert.equal(second.counts.pricesWritten, 1);
+  assert.equal(second.counts.pricesUnchanged, 1);
+  assert.equal(second.counts.pricesUpdated, 1);
+  assert.equal(second.counts.historyRowsSuppressed, 1);
+  assert.equal(second.counts.historyRowsConfirmed, 0);
+  assert.equal(second.counts.errors, 0);
+  assert.equal(second.items[0].action, "price_refreshed_without_duplicate_history");
+  assert.equal(repo.state.price.capturedAt, refreshedAt);
+  assert.equal(
+    repo.state.price.validUntil,
+    new Date(Date.parse(refreshedAt) + 36 * 60 * 60 * 1000).toISOString(),
+  );
+  assert.equal(repo.state.historyCapturedAt, originalHistoryAt);
+  assert.equal(repo.state.rpcCalls.length, 2);
+});
+
+test("Auchan mudança de preço cria histórico novo", async () => {
+  const repo = syncRepository({ commitEnabled: true });
+  await syncAuchanObservations(
+    [syncItem()],
+    repo,
+    new Date("2026-10-04T10:00:00.000Z"),
+  );
+  const changedAt = "2026-10-04T11:00:00.000Z";
+  const changed = await syncAuchanObservations(
+    [syncItem({ price: "3.10", capturedAt: changedAt })],
+    repo,
+    new Date(changedAt),
+  );
+  assert.equal(changed.counts.priceChanges, 1);
+  assert.equal(changed.counts.historyRowsConfirmed, 1);
+  assert.equal(changed.counts.historyRowsSuppressed, 0);
+  assert.equal(changed.counts.errors, 0);
+  assert.equal(repo.state.price.price, "3.10");
+  assert.equal(repo.state.historyCapturedAt, changedAt);
+  assert.equal(repo.state.historyPrice, "3.10");
 });
 
 test("acknowledgement incerto só é aceite depois de GET confirmar a escrita, sem replay", async () => {

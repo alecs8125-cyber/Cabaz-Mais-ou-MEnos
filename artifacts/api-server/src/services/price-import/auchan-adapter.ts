@@ -7,7 +7,8 @@ import type {
 } from "./auchan-types.js";
 
 const DEFAULT_BASE_URL = "https://www.auchan.pt";
-const MAX_TOTAL_PRODUCT_REQUESTS = 100;
+const MAX_DAILY_PRODUCT_REQUESTS = 200;
+const MAX_AUDIT_PRODUCT_REQUESTS = 100;
 const MAX_STABILITY_READS = 20;
 const MAX_ROBOTS_BYTES = 512 * 1024;
 const MAX_SITEMAP_BYTES = 16 * 1024 * 1024;
@@ -21,6 +22,29 @@ export interface AuchanAdapterOptions {
   readonly requestDelayMs?: number;
   readonly now?: () => Date;
   readonly maxProductPageRequests?: number;
+}
+
+export interface AuchanSitemapPlan {
+  readonly robotsUrl: string;
+  readonly sitemapIndexUrl: string;
+  readonly productSitemaps: readonly string[];
+}
+
+export interface AuchanProductUrlBatch {
+  readonly requestedUrls: readonly string[];
+  readonly firstPassAttempts: readonly AuchanPageAttempt[];
+  readonly stability: AuchanIdStability;
+  readonly stoppedReason: string | null;
+  readonly productPageRequests: number;
+}
+
+export interface AuchanSitemapBatch extends AuchanProductUrlBatch {
+  readonly sitemapUrl: string;
+  readonly offset: number;
+  readonly nextOffset: number;
+  readonly totalUrls: number;
+  readonly selectedUrls: readonly string[];
+  readonly skippedKnown: number;
 }
 
 interface RobotsGroup {
@@ -191,6 +215,8 @@ export class AuchanAdapter {
   private readonly maxProductPageRequests: number;
   private productPageRequests = 0;
   private robotsText = "";
+  private readonly sitemapCache = new Map<string, readonly string[]>();
+  private sitemapUrls = new Set<string>();
 
   constructor(options: AuchanAdapterOptions = {}) {
     this.baseUrl = new URL(options.baseUrl ?? DEFAULT_BASE_URL);
@@ -201,22 +227,22 @@ export class AuchanAdapter {
     this.requestDelayMs = Math.max(0, options.requestDelayMs ?? 1_000);
     this.now = options.now ?? (() => new Date());
     this.maxProductPageRequests = Math.min(
-      MAX_TOTAL_PRODUCT_REQUESTS,
-      options.maxProductPageRequests ?? MAX_TOTAL_PRODUCT_REQUESTS,
+      MAX_DAILY_PRODUCT_REQUESTS,
+      options.maxProductPageRequests ?? MAX_AUDIT_PRODUCT_REQUESTS,
     );
     if (!Number.isSafeInteger(this.maxProductPageRequests) || this.maxProductPageRequests < 1) {
-      throw new Error("maxProductPageRequests must be an integer between 1 and 100.");
+      throw new Error("maxProductPageRequests must be an integer between 1 and 200.");
     }
   }
 
   async runAudit(
-    inputTotalPageBudget = MAX_TOTAL_PRODUCT_REQUESTS,
+    inputTotalPageBudget = MAX_AUDIT_PRODUCT_REQUESTS,
     inputStabilityReads = MAX_STABILITY_READS,
     inputOffset = 0,
   ): Promise<AuchanAdapterAudit> {
     const pageBudget = Math.min(
       this.maxProductPageRequests,
-      boundedInteger(inputTotalPageBudget, 1, MAX_TOTAL_PRODUCT_REQUESTS),
+      boundedInteger(inputTotalPageBudget, 1, MAX_AUDIT_PRODUCT_REQUESTS),
     );
     const stabilityTarget = Math.min(
       MAX_STABILITY_READS,
@@ -324,6 +350,173 @@ export class AuchanAdapter {
       stability,
       stoppedReason,
       productPageRequests: this.productPageRequests - startRequests,
+    };
+  }
+
+  async discoverProductSitemaps(): Promise<AuchanSitemapPlan> {
+    const robotsUrl = new URL("/robots.txt", this.baseUrl);
+    this.robotsText = await this.getRequiredText(robotsUrl, MAX_ROBOTS_BYTES);
+    const sitemapLine = this.robotsText
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .find((line) => /^sitemap\s*:/i.test(line));
+    if (!sitemapLine) throw new Error("robots.txt did not declare a sitemap.");
+    const sitemapIndex = sameSiteHttps(
+      sitemapLine.slice(sitemapLine.indexOf(":") + 1).trim(),
+      this.baseUrl,
+    );
+    if (!sitemapIndex) {
+      throw new Error("The declared sitemap is not on the HTTPS Auchan origin.");
+    }
+    const indexText = await this.getRequiredText(sitemapIndex, MAX_SITEMAP_BYTES);
+    const sitemaps = productSitemaps(indexText, this.baseUrl);
+    if (!sitemaps.length) throw new Error("No same-site product sitemaps were declared.");
+    this.sitemapUrls = new Set(sitemaps);
+    return {
+      robotsUrl: robotsUrl.toString(),
+      sitemapIndexUrl: sitemapIndex.toString(),
+      productSitemaps: sitemaps,
+    };
+  }
+
+  async runProductUrls(
+    urls: readonly string[],
+    inputStabilityReads = 0,
+  ): Promise<AuchanProductUrlBatch> {
+    if (!this.robotsText) {
+      this.robotsText = await this.getRequiredText(
+        new URL("/robots.txt", this.baseUrl),
+        MAX_ROBOTS_BYTES,
+      );
+    }
+    const stabilityTarget = Math.min(
+      MAX_STABILITY_READS,
+      Math.max(0, Math.floor(inputStabilityReads)),
+    );
+    const startRequests = this.productPageRequests;
+    const firstPassAttempts: AuchanPageAttempt[] = [];
+    let stoppedReason: string | null = null;
+    let consecutiveNetworkErrors = 0;
+    for (const inputUrl of urls) {
+      const safeUrl = validProductUrl(inputUrl, this.baseUrl);
+      if (!safeUrl) {
+        firstPassAttempts.push({
+          url: inputUrl,
+          outcome: "invalid_page",
+          status: null,
+          redirectLocation: null,
+          observation: null,
+          error: "unsafe_product_url",
+        });
+        continue;
+      }
+      if (firstPassAttempts.length) await this.delay();
+      const attempt = await this.readProductPage(safeUrl);
+      firstPassAttempts.push(attempt);
+      if (attempt.outcome === "network_error") {
+        consecutiveNetworkErrors += 1;
+        if (consecutiveNetworkErrors >= 3) {
+          stoppedReason = "Stopped after three consecutive network errors.";
+          break;
+        }
+      } else {
+        consecutiveNetworkErrors = 0;
+      }
+      if (attempt.outcome === "blocked") {
+        stoppedReason = "Stopped on a block or anti-bot challenge; no workaround was attempted.";
+        break;
+      }
+      if (attempt.outcome === "request_budget_exhausted") {
+        stoppedReason = "Stopped at the configured product-page request budget.";
+        break;
+      }
+    }
+    const stability = await this.verifyIdStability(
+      firstPassAttempts,
+      stabilityTarget,
+      stoppedReason !== null,
+      this.maxProductPageRequests,
+    );
+    return {
+      requestedUrls: urls,
+      firstPassAttempts,
+      stability,
+      stoppedReason,
+      productPageRequests: this.productPageRequests - startRequests,
+    };
+  }
+
+  async runSitemapBatch(
+    sitemapUrl: string,
+    inputOffset: number,
+    inputLimit: number,
+    inputStabilityReads = 0,
+    knownProductIds: ReadonlySet<string> = new Set(),
+    inputMaxProductUrls = Number.POSITIVE_INFINITY,
+    resumeAfterUrl: string | null = null,
+  ): Promise<AuchanSitemapBatch> {
+    if (!Number.isSafeInteger(inputOffset) || inputOffset < 0) {
+      throw new Error("The sitemap batch offset must be a non-negative safe integer.");
+    }
+    if (!Number.isFinite(inputLimit) || inputLimit < 1) {
+      throw new Error("The sitemap scan size must be a positive finite number.");
+    }
+    const limit = Math.min(200, Math.floor(inputLimit));
+    const safeSitemap = sameSiteHttps(sitemapUrl, this.baseUrl);
+    if (
+      !safeSitemap ||
+      !this.sitemapUrls.has(safeSitemap.toString()) ||
+      !/product/i.test(safeSitemap.pathname)
+    ) throw new Error("The selected sitemap is not a declared same-site product sitemap.");
+    let urls = this.sitemapCache.get(safeSitemap.toString());
+    if (!urls) {
+      const body = await this.getRequiredText(safeSitemap, MAX_SITEMAP_BYTES);
+      urls = [...new Set(
+        locationValues(body)
+          .map((location) => validProductUrl(location, this.baseUrl))
+          .filter((url): url is string => url !== null),
+      )].sort((left, right) => left.localeCompare(right));
+      if (!urls.length) throw new Error("The product sitemap contained no valid product URLs.");
+      this.sitemapCache.set(safeSitemap.toString(), urls);
+    }
+
+    let startOffset = inputOffset;
+    if (resumeAfterUrl) {
+      const bookmarkIndex = urls.indexOf(resumeAfterUrl);
+      if (bookmarkIndex < 0) {
+        throw new Error("The last product URL bookmark is absent from its sitemap; resume stopped safely.");
+      }
+      startOffset = bookmarkIndex + 1;
+    }
+
+    const productLimit = Number.isFinite(inputMaxProductUrls)
+      ? Math.max(0, Math.floor(inputMaxProductUrls))
+      : Number.POSITIVE_INFINITY;
+    const selectedUrls: string[] = [];
+    const requestedUrls: string[] = [];
+    let skippedKnown = 0;
+    for (const url of urls.slice(startOffset, startOffset + limit)) {
+      selectedUrls.push(url);
+      const id = /\/([1-9]\d*)\.html$/i.exec(new URL(url).pathname)?.[1] ?? null;
+      if (id && knownProductIds.has(id)) {
+        skippedKnown += 1;
+        continue;
+      }
+      if (requestedUrls.length >= productLimit) break;
+      requestedUrls.push(url);
+      if (requestedUrls.length >= productLimit) break;
+    }
+    // Do not advance the bookmark past URLs that were not actually scanned.
+    const scannedUrls = selectedUrls.slice(0, Math.max(requestedUrls.length + skippedKnown, 0));
+    const firstPass = await this.runProductUrls(requestedUrls, inputStabilityReads);
+    return {
+      ...firstPass,
+      sitemapUrl: safeSitemap.toString(),
+      offset: startOffset,
+      selectedUrls: scannedUrls,
+      nextOffset: startOffset + scannedUrls.length,
+      totalUrls: urls.length,
+      skippedKnown,
     };
   }
 
@@ -439,13 +632,14 @@ export class AuchanAdapter {
     if (!response.ok) {
       const body = await readLimitedText(response, 8 * 1024).catch(() => "");
       const blocked = [401, 403, 429].includes(response.status) || isChallengePage(body);
+      const absent = response.status === 404 || response.status === 410;
       return {
         url: safeUrl,
-        outcome: blocked ? "blocked" : "http_error",
+        outcome: blocked ? "blocked" : absent ? "invalid_page" : "http_error",
         status: response.status,
         redirectLocation: null,
         observation: null,
-        error: `HTTP ${response.status}`,
+        error: absent ? `product_page_missing_http_${response.status}` : `HTTP ${response.status}`,
       };
     }
 

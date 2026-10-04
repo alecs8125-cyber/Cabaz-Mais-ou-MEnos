@@ -3,7 +3,8 @@ export type SupabaseReadTable =
   | "stores"
   | "external_product_mappings"
   | "prices"
-  | "price_history";
+  | "price_history"
+  | "source_sync_state";
 
 export interface SupabaseReadOnlyClient {
   getRows(
