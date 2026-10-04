@@ -1,0 +1,51 @@
+Quero começar a modernização visual do Cabaz Mais ou Menos com base na identidade visual que escolhemos.
+
+IMPORTANTE: nesta tarefa cria/aplica apenas a BASE VISUAL. Não redesenhes ainda todos os ecrãs e não alteres nenhuma lógica funcional.
+
+IDENTIDADE ESCOLHIDA:
+- Estilo moderno, simples, amigável e profissional
+- Verde principal: #16A34A
+- Verde secundário: #22C55E
+- Laranja/destaque/poupança: #F97316
+- Fundo claro quente: #F8FAF6
+- Texto principal: #374151
+- Branco para cartões e superfícies
+- Cantos arredondados
+- Sombras muito suaves
+- Hierarquia visual limpa
+- Botões principais verdes
+- Laranja usado com moderação para poupança, alertas e destaques
+- Evitar excesso de cores e elementos decorativos
+
+TIPOGRAFIA:
+- A referência visual usa Poppins.
+- Verifica primeiro se Poppins já existe no projeto.
+- Se não existir, não adiciones dependências nesta tarefa. Mantém a fonte atual/sistema e prepara o design para podermos introduzir Poppins posteriormente de forma segura.
+
+OBJETIVO DESTA TAREFA:
+1. Audita onde estão atualmente cores, espaçamentos, borderRadius, sombras e estilos reutilizáveis.
+2. Cria ou ajusta um ficheiro central de tema/design tokens, seguindo a arquitetura existente do projeto.
+3. Centraliza pelo menos:
+   - cores
+   - espaçamentos
+   - borderRadius
+   - tipografia/tamanhos
+   - sombras básicas
+4. Substitui apenas valores globais/partilhados quando isso for seguro.
+5. Não faças ainda um redesign completo dos ecrãs.
+6. Não alteres navegação.
+7. Não alteres Supabase.
+8. Não alteres consultas, comparação, preços, produtos, localização, cabazes guardados ou histórico.
+9. Não adiciones GPS.
+10. Não adiciones bibliotecas/dependências desnecessárias.
+11. Mantém Android e iOS compatíveis.
+12. Executa TypeScript e todos os testes existentes.
+
+No fim responde apenas com:
+- ficheiros alterados;
+- design tokens criados/alterados;
+- se Poppins já existia ou não;
+- alterações visuais efetivamente aplicadas;
+- resultado do TypeScript;
+- testes passados/falhados;
+- confirmação de que nenhuma lógica funcional nem Supabase foi alterado.

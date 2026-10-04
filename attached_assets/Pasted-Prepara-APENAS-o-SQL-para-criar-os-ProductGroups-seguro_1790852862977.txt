@@ -1,0 +1,145 @@
+Prepara APENAS o SQL para criar os ProductGroups seguros já validados.
+
+MODO:
+FREE.
+
+NÃO executes SQL.
+NÃO alteres Supabase.
+NÃO alteres ficheiros.
+NÃO alteres a interface.
+NÃO cries grupos diretamente.
+NÃO importes preços.
+
+CONTEXTO:
+
+Já existe e deve ser preservado:
+
+Leite Meio-Gordo 1 L
+
+No dry run foram considerados de confiança alta vários grupos.
+
+NESTE PASSO quero preparar APENAS estes:
+
+1. Arroz Agulha 1 kg
+2. Arroz Carolino 1 kg
+3. Arroz Basmati 1 kg
+4. Esparguete 500 g
+5. Fusilli 500 g
+6. Azeite Virgem Extra 750 ml
+7. Açúcar Branco 1 kg
+8. Açúcar Amarelo 1 kg
+9. Farinha de Trigo 1 kg
+10. Café Moído 250 g
+
+NÃO preparar ainda:
+
+- Leite Magro 1 L
+- Leite Inteiro 1 L
+- Ovos
+- Água
+- Penne
+- Farinha de Trigo Integral
+- Café Solúvel
+
+porque ainda precisam de revisão.
+
+OBJETIVO:
+
+Gerar UM script SQL seguro para eu copiar manualmente para o Supabase.
+
+O SQL deve:
+
+1. Criar os 10 grupos em public.product_groups.
+
+2. Não criar grupos duplicados se for executado mais de uma vez.
+
+3. Para cada grupo, adicionar apenas produtos ativos claramente
+compatíveis em public.product_group_items.
+
+4. Nunca adicionar o mesmo product_id duas vezes ao mesmo group_id.
+
+5. Usar package_quantity e package_unit para confirmar o formato.
+
+6. Usar regras conservadoras por nome/categoria.
+
+7. Excluir variantes incompatíveis.
+
+REGRAS:
+
+ARROZ AGULHA:
+- incluir apenas arroz agulha;
+- 1 kg;
+- excluir integral, preparado, prato pronto ou produtos que não sejam arroz simples.
+
+ARROZ CAROLINO:
+- incluir apenas arroz carolino;
+- 1 kg;
+- excluir outros tipos de arroz e produtos preparados.
+
+ARROZ BASMATI:
+- incluir apenas basmati;
+- 1 kg;
+- excluir misturas e pratos preparados.
+
+ESPARGUETE:
+- 500 g;
+- excluir integral, sem glúten, tinta de choco ou outras variantes especiais.
+
+FUSILLI:
+- 500 g;
+- excluir integral, tricolor, sem glúten ou variantes especiais.
+
+AZEITE VIRGEM EXTRA:
+- 750 ml;
+- produto deve ser azeite engarrafado;
+- excluir conservas, peixe, molhos e outros produtos que apenas mencionem azeite.
+
+AÇÚCAR BRANCO:
+- 1 kg;
+- excluir adoçantes e outros tipos de açúcar.
+
+AÇÚCAR AMARELO:
+- 1 kg;
+- excluir açúcar branco, adoçantes e tipos incompatíveis.
+
+FARINHA DE TRIGO:
+- 1 kg;
+- farinha simples de trigo;
+- excluir integral, milho, arroz e outras farinhas;
+- excluir preparados para bolos/pão.
+
+CAFÉ MOÍDO:
+- 250 g;
+- café torrado/moído;
+- excluir cápsulas;
+- excluir solúvel;
+- excluir descafeinado;
+- excluir misturas com cevada, chicória ou cereais.
+
+IMPORTANTE:
+
+Antes de gerar o SQL final, usa apenas leitura para confirmar
+novamente os candidatos reais de cada grupo.
+
+O script deve usar os IDs reais encontrados em public.products,
+ou uma estratégia SQL segura que produza exatamente os mesmos
+produtos validados.
+
+Preferir IDs reais explícitos se isso tornar a criação mais segura.
+
+O SQL deve ser transacional:
+
+BEGIN;
+
+...
+
+COMMIT;
+
+No final responde APENAS:
+
+- número de grupos que o SQL vai criar;
+- número de produtos por grupo;
+- lista de grupos;
+- SQL COMPLETO para copiar para Supabase;
+- confirmação de que nada foi executado;
+- confirmação de que nada foi alterado.

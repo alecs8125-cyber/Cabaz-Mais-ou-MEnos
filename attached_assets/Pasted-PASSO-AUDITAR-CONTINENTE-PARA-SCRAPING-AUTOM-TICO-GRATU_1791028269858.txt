@@ -1,0 +1,102 @@
+PASSO — AUDITAR CONTINENTE PARA SCRAPING AUTOMÁTICO GRATUITO
+
+MODO:
+FREE.
+
+OBJETIVO:
+Descobrir a forma mais simples, estável e gratuita de recolher preços
+públicos do Continente Online automaticamente.
+
+IMPORTANTE:
+
+NÃO escrever em Supabase.
+NÃO alterar public.prices.
+NÃO alterar price_history.
+NÃO fazer login.
+NÃO aceder a carrinho, conta, checkout ou áreas privadas.
+NÃO contornar CAPTCHA.
+NÃO contornar anti-bot.
+NÃO usar proxies.
+NÃO instalar browser headless ainda.
+NÃO fazer muitos pedidos.
+
+TRABALHAR NO:
+artifacts/api-server
+
+1. Consultar primeiro:
+https://www.continente.pt/robots.txt
+e o sitemap público indicado nele.
+
+2. Descobrir se as páginas públicas de produto fornecem, por HTTP simples:
+
+- nome;
+- preço;
+- preço promocional;
+- marca;
+- embalagem/formato;
+- EAN/GTIN/barcode, se existir;
+- URL;
+- identificador interno;
+- disponibilidade.
+
+3. Verificar nesta ordem:
+
+A) HTML estático;
+B) JSON-LD/schema.org;
+C) scripts JSON embutidos na página;
+D) endpoints públicos usados pela própria página.
+
+NÃO usar browser automatizado nesta fase.
+
+4. Escolher no máximo 20 produtos públicos do sitemap.
+
+5. Fazer um DRY RUN.
+
+Para cada produto devolver:
+
+- nome
+- preço
+- promoção
+- embalagem
+- barcode/EAN encontrado: sim/não
+- URL
+- método de extração usado
+
+6. Não guardar nenhum preço.
+
+7. Medir:
+
+- quantos dos 20 têm preço;
+- quantos têm barcode/EAN;
+- quantos têm embalagem;
+- quantos têm promoção;
+- quantos conseguem corresponder exatamente a products.barcode do nosso Supabase.
+
+8. Se existir um endpoint JSON público usado pelo frontend:
+
+- identificar URL/padrão;
+- confirmar que funciona sem autenticação;
+- confirmar que não exige token privado;
+- NÃO explorar além do necessário;
+- preferi-lo ao parsing HTML se for claramente público e estável.
+
+9. Respeitar robots.txt.
+
+10. Executar poucos pedidos, sequenciais ou com baixa concorrência.
+
+NO FINAL RESPONDE APENAS:
+
+- método encontrado;
+- necessita JavaScript/browser: sim/não;
+- endpoint JSON público encontrado: sim/não;
+- produtos testados;
+- preços encontrados;
+- barcodes encontrados;
+- correspondências com nosso catálogo;
+- promoções encontradas;
+- exemplo de 3 produtos;
+- limitações encontradas;
+- alterações realizadas;
+- confirmação de zero escritas em prices;
+- conclusão:
+  Continente é viável ou não para scraping automático gratuito.

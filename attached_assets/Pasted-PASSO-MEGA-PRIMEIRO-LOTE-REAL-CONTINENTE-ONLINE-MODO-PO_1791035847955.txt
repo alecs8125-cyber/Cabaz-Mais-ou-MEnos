@@ -1,0 +1,295 @@
+PASSO MEGA — PRIMEIRO LOTE REAL CONTINENTE ONLINE
+
+MODO:
+POWER.
+
+A SUPABASE_SERVICE_ROLE_KEY já está disponível no processo:
+serviceRolePresent = true.
+
+ESTE PASSO É PARA EXECUTAR O PRIMEIRO COMMIT REAL.
+
+NÃO alterar schema.
+NÃO executar SQL.
+NÃO criar novas tabelas.
+NÃO alterar ProductGroups.
+NÃO implementar outro supermercado.
+NÃO processar mais de 20 URLs.
+NÃO imprimir Secrets.
+
+==================================================
+1. PRÉ-VERIFICAÇÃO
+==================================================
+
+Confirmar por leitura que existem:
+
+- public.external_product_mappings;
+- public.source_sync_state;
+- exatamente 1 store com:
+  source_type = 'continente'
+  external_id = 'online';
+- RPC:
+  public.upsert_verified_price_with_history.
+
+Se algum destes requisitos faltar:
+
+PARAR antes de qualquer escrita
+e indicar exatamente o que falta.
+
+==================================================
+2. DRY RUN PRIMEIRO
+==================================================
+
+Executar:
+
+pnpm --filter @workspace/api-server run sync:continente -- --limit=20 --offset=0
+
+SEM --commit.
+
+Confirmar:
+
+- URLs processáveis;
+- preços válidos;
+- produtos existentes reutilizáveis;
+- produtos source-native que seriam criados;
+- nenhum conflito de SKU;
+- store Continente Online resolvida.
+
+Se houver erro crítico:
+PARAR antes do commit.
+
+==================================================
+3. COMMIT REAL
+==================================================
+
+Se o dry run estiver saudável, executar UMA ÚNICA VEZ:
+
+pnpm --filter @workspace/api-server run sync:continente -- --limit=20 --offset=0 --commit
+
+Máximo absoluto:
+20 URLs.
+
+==================================================
+4. REGRAS PARA PRODUTOS
+==================================================
+
+Resolver nesta ordem:
+
+1. external_product_mappings existente;
+2. products.source_type='continente'
+   + external_id=SKU;
+3. barcode exato;
+4. name_brand_exact_unique quando determinístico;
+5. caso contrário criar produto source-native Continente.
+
+Produto source-native:
+
+- name real;
+- brand real se disponível;
+- source_type = 'continente';
+- external_id = SKU;
+- active = true;
+- image_url quando disponível;
+- barcode = NULL se não existir;
+- package_quantity/package_unit somente com confiança;
+- unit somente quando seguro;
+- NÃO inventar categoria;
+- NÃO inventar barcode;
+- NÃO inventar embalagem.
+
+Idempotência obrigatória:
+Nunca criar dois products Continente para o mesmo SKU.
+
+==================================================
+5. MAPPING
+==================================================
+
+Garantir:
+
+source_type = 'continente'
+external_product_id = SKU
+→ product_id correto
+
+Para source-native:
+
+match_method = 'source_native'
+confidence = 1
+verified = true
+
+Não mapear ambiguous para produto existente.
+
+==================================================
+6. PREÇOS
+==================================================
+
+Todos os preços deste lote são:
+
+store = Continente Online
+
+NUNCA atribuir a loja física.
+
+Usar:
+
+source_type = 'continente'
+external_id = 'online:' + SKU
+currency = 'EUR'
+captured_at = momento real da recolha
+valid_from = captured_at
+valid_until = captured_at + 36 horas
+verification_status = 'verified'
+
+Usar EXCLUSIVAMENTE:
+
+public.upsert_verified_price_with_history
+
+para gravar public.prices e price_history.
+
+Não fazer INSERT/UPDATE direto em prices.
+
+==================================================
+7. HISTÓRICO
+==================================================
+
+Confirmar:
+
+- primeira observação cria history;
+- preço igual numa futura sync não duplica history;
+- preço alterado cria nova entrada;
+- current price continua em public.prices.
+
+==================================================
+8. VALIDAÇÃO APÓS COMMIT
+==================================================
+
+Fazer consultas READ-ONLY para confirmar:
+
+A)
+quantos products com:
+source_type='continente'
+
+B)
+quantos mappings com:
+source_type='continente'
+
+C)
+quantos prices com:
+source_type='continente'
+
+D)
+quantos price_history correspondem aos produtos deste lote
+
+E)
+todos os prices Continente:
+
+- price > 0;
+- currency='EUR';
+- verification_status='verified';
+- valid_until IS NOT NULL;
+- valid_until > captured_at;
+- store_id = Continente Online;
+- external_id começa por online:.
+
+F)
+não existem duplicados de:
+
+products(source_type, external_id)
+para Continente no lote;
+
+external_product_mappings(source_type, external_product_id);
+
+prices(source_type, external_id).
+
+==================================================
+9. TESTE DE IDEMPOTÊNCIA
+==================================================
+
+Depois do commit:
+
+executar NOVAMENTE o MESMO lote SEM --commit.
+
+O segundo dry run deve reutilizar:
+
+- products;
+- mappings;
+
+e não propor duplicações.
+
+NÃO executar segundo commit.
+
+==================================================
+10. TESTE REAL NA APP
+==================================================
+
+Escolher 1 produto do lote que tenha preço gravado.
+
+Testar:
+
+- pesquisar produto por nome;
+- adicionar ao cabaz;
+- abrir comparação;
+- Continente Online aparece;
+- preço real aparece;
+- "Online" aparece claramente;
+- distância não aparece;
+- município/distrito não são inventados;
+- detalhe abre;
+- preço mostrado corresponde ao public.prices.
+
+Se o produto escolhido já estiver associado a um produto existente,
+também é válido.
+
+==================================================
+11. TESTES
+==================================================
+
+Executar:
+
+- testes API relevantes;
+- typecheck API;
+- build API;
+- testes app relevantes;
+- typecheck app.
+
+Não gastar tempo em erros antigos não relacionados do mockup-sandbox.
+
+==================================================
+12. NÃO FAZER MAIS NADA
+==================================================
+
+NÃO:
+- sincronizar o catálogo completo;
+- criar agendamento;
+- implementar Auchan;
+- implementar GPS;
+- criar novos ProductGroups;
+- fazer redesign.
+
+Primeiro provar este lote real.
+
+==================================================
+NO FINAL RESPONDE APENAS
+==================================================
+
+- pré-requisitos Supabase: OK/erro;
+- URLs consultadas;
+- páginas válidas;
+- produtos processados;
+- products source-native criados;
+- products existentes reutilizados;
+- mappings criados;
+- prices criados;
+- prices atualizados;
+- history criado;
+- erros;
+- duplicados encontrados;
+- todos os preços têm validade 36h: sim/não;
+- todos apontam para Continente Online: sim/não;
+- segundo dry run idempotente: sim/não;
+- produto testado na app;
+- preço apresentado;
+- Continente Online apareceu: sim/não;
+- distância escondida: sim/não;
+- detalhe abriu: sim/não;
+- testes passados/falhados;
+- typecheck/build;
+- conclusão:
+  fluxo REAL Continente → Supabase → comparador funciona sim/não.

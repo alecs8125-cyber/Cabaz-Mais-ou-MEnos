@@ -1,0 +1,101 @@
+MODO: FREE
+
+Vamos iniciar a preparação para estabelecimentos reais do Cabaz Mais ou Menos.
+
+IMPORTANTE:
+Nesta tarefa NÃO importar ainda nenhum estabelecimento.
+NÃO alterar dados existentes no Supabase.
+NÃO apagar dados demo.
+NÃO alterar o comparador.
+NÃO alterar a interface.
+NÃO instalar dependências.
+NÃO fazer scraping de sites de supermercados.
+
+OBJETIVO:
+Preparar tecnicamente um importador de estabelecimentos alimentares provenientes do OpenStreetMap/Overpass, mas nesta tarefa apenas analisar e definir o mapeamento.
+
+A aplicação pretende futuramente suportar, a nível nacional:
+- supermercados;
+- hipermercados;
+- minimercados;
+- mercearias;
+- lojas alimentares de proximidade;
+- outros estabelecimentos adequados à compra de produtos do cabaz.
+
+O schema atual de public.stores inclui:
+
+id
+name
+store_type
+address
+district
+municipality
+parish
+latitude
+longitude
+website
+active
+created_at
+chain_name
+postal_code
+source_type
+external_id
+
+Analisa como dados OpenStreetMap poderiam ser mapeados para estes campos.
+
+Usar como identificador externo estável a combinação apropriada do tipo de elemento OSM e respetivo ID, por exemplo:
+node/123
+way/456
+relation/789
+
+source_type deverá identificar claramente a origem OpenStreetMap.
+
+Verificar mapeamento possível para:
+- name
+- brand/operator
+- tipo de estabelecimento
+- morada
+- código postal
+- latitude
+- longitude
+- website
+
+IMPORTANTE SOBRE LOCALIZAÇÃO:
+O comparador atual depende de:
+- district
+- municipality
+- parish
+
+Identifica como estes campos deverão ser obtidos/normalizados antes de uma importação nacional, sem inventar valores quando o OpenStreetMap não os fornecer.
+
+Também definir quais categorias/tags OSM devemos aceitar e quais devemos excluir para evitar importar negócios que não sejam adequados à comparação de um cabaz alimentar.
+
+Não escrever ainda o importador.
+Não chamar a API.
+Não inserir registos.
+Não modificar ficheiros.
+
+No final responder apenas:
+
+CATEGORIAS OSM PROPOSTAS:
+...
+
+MAPEAMENTO OSM → public.stores:
+...
+
+IDENTIFICADOR EXTERNO:
+...
+
+TRATAMENTO DE DISTRITO/CONCELHO/FREGUESIA:
+...
+
+REGRAS ANTI-DUPLICADOS:
+...
+
+ESTABELECIMENTOS A EXCLUIR:
+...
+
+PRÓXIMO PASSO:
+...
+
+PARAR.

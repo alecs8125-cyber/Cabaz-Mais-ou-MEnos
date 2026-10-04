@@ -1,0 +1,140 @@
+PASSO MEGA — PRIMEIRO COMMIT REAL CONTINENTE ONLINE
+
+MODO:
+POWER.
+
+A infraestrutura Supabase já foi criada manualmente.
+
+NÃO criar tabelas.
+NÃO executar SQL de schema.
+NÃO modificar constraints.
+NÃO alterar ProductGroups.
+NÃO implementar outro supermercado.
+
+OBJETIVO:
+
+Executar de forma segura o PRIMEIRO lote real
+de preços Continente Online.
+
+1. Confirmar que existe a secret:
+
+SUPABASE_SERVICE_ROLE_KEY
+
+NÃO imprimir o valor.
+
+Se não existir:
+PARAR antes de qualquer escrita.
+
+2. Confirmar por leitura:
+
+- external_product_mappings existe;
+- source_sync_state existe;
+- Continente Online existe exatamente uma vez;
+- RPC upsert_verified_price_with_history existe.
+
+3. Executar primeiro:
+
+sync:continente
+--limit=20
+--offset=0
+
+SEM --commit.
+
+Confirmar dry run saudável.
+
+4. Se dry run saudável:
+
+executar UMA VEZ:
+
+sync:continente
+--limit=20
+--offset=0
+--commit
+
+Não processar mais de 20 URLs.
+
+5. Para unmatched seguros:
+
+criar produto source-native Continente.
+
+Nunca inventar:
+
+- barcode;
+- categoria;
+- quantidade;
+- unidade.
+
+6. Garantir mapping:
+
+continente + SKU → product_id
+
+7. Preço:
+
+store = Continente Online
+external_id = online:SKU
+currency = EUR
+captured_at = momento da recolha
+valid_from = captured_at
+valid_until = captured_at + 36 horas
+verification_status = verified
+
+Usar EXCLUSIVAMENTE:
+
+upsert_verified_price_with_history
+
+para public.prices / price_history.
+
+8. Depois do commit, consultar READ-ONLY e confirmar:
+
+- número de products source_type=continente criados;
+- mappings continente;
+- prices source_type=continente;
+- price_history correspondente;
+- todos os preços apontam para Continente Online;
+- todos têm valid_until;
+- nenhum valid_until <= captured_at;
+- nenhum preço <= 0;
+- nenhum preço tem moeda diferente de EUR;
+- nenhum SKU duplicado;
+- nenhum online:SKU duplicado.
+
+9. Executar outra vez o MESMO lote em DRY RUN.
+
+Confirmar idempotência:
+não deve propor duplicação de produtos/mappings.
+
+10. Testar na app:
+
+- procurar pelo menos 1 produto importado;
+- adicionar ao cabaz;
+- comparar;
+- Continente Online aparece;
+- preço aparece;
+- indicação Online aparece;
+- distância não aparece;
+- detalhe abre corretamente.
+
+11. Executar todos os testes relevantes.
+
+NO FINAL RESPONDE APENAS:
+
+- secret encontrada: sim/não;
+- pré-requisitos Supabase: OK/erro;
+- URLs consultadas;
+- produtos processados;
+- source-native criados;
+- produtos existentes reutilizados;
+- mappings criados;
+- preços gravados;
+- linhas novas de histórico;
+- preços válidos por 36h;
+- erros de importação;
+- duplicados encontrados;
+- segundo dry run idempotente: sim/não;
+- produto pesquisado na app;
+- preço mostrado;
+- Continente Online mostrado;
+- distância escondida;
+- testes passados/falhados;
+- typecheck/build;
+- conclusão: primeiro fluxo real end-to-end funciona sim/não.

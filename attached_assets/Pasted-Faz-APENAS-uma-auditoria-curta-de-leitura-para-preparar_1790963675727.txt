@@ -1,0 +1,92 @@
+Faz APENAS uma auditoria curta de leitura para preparar a atualização
+automática de preços do Cabaz Mais ou Menos.
+
+MODO:
+FREE.
+
+NÃO alteres ficheiros.
+NÃO alteres Supabase.
+NÃO cries preços.
+NÃO cries SQL.
+NÃO faças scraping.
+NÃO instales dependências.
+
+CONTEXTO:
+
+A app já tem:
+
+- 9.112 produtos;
+- ProductGroups;
+- 21 tipos principais visíveis;
+- lojas reais;
+- comparador;
+- public.prices;
+- valid_until;
+- verification_status;
+- source_type;
+- source_reference;
+- external_id;
+- price_history.
+
+OBJETIVO:
+
+Quero preparar um sistema em que os preços possam ser atualizados
+automaticamente sem eu ter de os introduzir à mão.
+
+Analisa o projeto e responde:
+
+1. Onde deve correr futuramente uma tarefa automática de atualização
+de preços:
+- servidor/backend;
+- Supabase Edge Function;
+- cron;
+- ou outra opção já compatível com o projeto.
+
+2. Verifica se já existe alguma infraestrutura no projeto para:
+- tarefas agendadas;
+- cron;
+- backend Express;
+- Edge Functions;
+- jobs automáticos.
+
+3. Explica a arquitetura mínima para:
+
+fonte externa
+→ identificar produto por barcode
+→ identificar loja
+→ validar preço
+→ guardar/update em public.prices
+→ guardar histórico quando o preço muda.
+
+4. A atualização deve suportar fontes diferentes com frequências diferentes.
+
+Exemplo:
+- fonte A: diária;
+- fonte B: várias vezes por dia;
+- fonte C: semanal.
+
+5. Um preço antigo não deve permanecer válido indefinidamente.
+
+Explica como usar:
+- captured_at
+- valid_from
+- valid_until
+
+para controlar isso.
+
+6. verification_status=pending nunca deve entrar no comparador.
+
+7. Não implementar nada.
+
+NO FINAL RESPONDE APENAS:
+
+- infraestrutura automática já existente;
+- local recomendado para executar os updates;
+- fluxo automático recomendado;
+- como impedir preços antigos;
+- como alimentar price_history;
+- o que ainda falta antes de ligar a primeira fonte;
+- ficheiros relevantes;
+- próximo passo mínimo.
+
+NÃO FAÇAS ALTERAÇÕES.

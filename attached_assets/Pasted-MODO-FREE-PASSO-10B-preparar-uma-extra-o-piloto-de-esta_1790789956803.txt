@@ -1,0 +1,126 @@
+MODO: FREE
+
+PASSO 10B — preparar uma extração piloto de estabelecimentos reais.
+
+NÃO importar ainda dados para o Supabase.
+NÃO alterar public.stores.
+NÃO apagar lojas demo.
+NÃO alterar o comparador.
+NÃO alterar a interface.
+NÃO alterar preços.
+NÃO instalar dependências desnecessárias.
+
+OBJETIVO:
+
+Preparar uma extração piloto OpenStreetMap/Overpass para:
+
+Portugal
+Distrito: Faro
+Concelho: Loulé
+
+Nesta primeira prova incluir apenas estabelecimentos adequados à comparação de um cabaz geral:
+
+- shop=supermarket
+- shop=hypermarket
+- shop=convenience
+- shop=grocery
+
+Não incluir ainda:
+- bakery
+- butcher
+- seafood
+- greengrocer
+- deli
+- restaurantes
+- cafés
+- bares
+- outros comércios especializados.
+
+A consulta deve considerar:
+- node
+- way
+- relation
+
+Para cada estabelecimento tentar obter:
+
+- tipo OSM + ID;
+- name;
+- shop;
+- brand;
+- operator;
+- addr:street;
+- addr:housenumber;
+- addr:postcode;
+- contact:website ou website;
+- latitude;
+- longitude.
+
+external_id deve assumir:
+node/<id>
+way/<id>
+relation/<id>
+
+source_type:
+openstreetmap
+
+IMPORTANTE:
+
+Nesta tarefa quero APENAS preparar e, se possível, executar a consulta para inspeção.
+
+NÃO fazer INSERT/UPDATE/UPSERT no Supabase.
+
+Não inventar:
+- district;
+- municipality;
+- parish;
+- moradas;
+- nomes;
+- marcas.
+
+Se a consulta devolver estabelecimentos:
+1. contar quantos foram encontrados;
+2. separar por shop=*;
+3. mostrar uma amostra de até 20 estabelecimentos;
+4. indicar quantos não têm name;
+5. indicar quantos não têm postcode;
+6. identificar possíveis duplicados node/way/relation por nome + proximidade, sem os fundir;
+7. identificar cadeias/marcas encontradas.
+
+Se Overpass não estiver acessível no ambiente:
+não tentar contornar com scraping.
+Apenas fornecer a consulta Overpass pronta para utilização posterior.
+
+NÃO escrever ainda um importador nacional.
+
+No final responder:
+
+CONSULTA: OK/FALHOU
+
+TOTAL ENCONTRADO:
+...
+
+POR CATEGORIA:
+...
+
+AMOSTRA:
+...
+
+SEM NOME:
+...
+
+SEM CÓDIGO POSTAL:
+...
+
+POSSÍVEIS DUPLICADOS:
+...
+
+CADEIAS/MARCAS ENCONTRADAS:
+...
+
+PROBLEMAS DE QUALIDADE DOS DADOS:
+...
+
+PRONTO PARA PILOTO NO SUPABASE:
+SIM/NÃO + motivo
+
+PARAR.

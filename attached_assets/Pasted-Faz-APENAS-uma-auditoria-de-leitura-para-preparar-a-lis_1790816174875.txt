@@ -1,0 +1,112 @@
+Faz APENAS uma auditoria de leitura para preparar a listagem de itens
+do ecrã "Escolhe o que precisas".
+
+MODO:
+FREE.
+
+NÃO alteres ficheiros.
+NÃO alteres Supabase.
+NÃO cries ProductGroups.
+NÃO alteres a interface.
+NÃO importes preços.
+NÃO faças scraping.
+NÃO instales dependências.
+
+CONTEXTO:
+
+A app Cabaz Mais ou Menos deve permitir ao utilizador escolher primeiro
+o tipo de produto de forma simples.
+
+Exemplo:
+
+Leite
+Arroz
+Ovos
+Água
+Massa
+Azeite
+Açúcar
+Farinha
+Café
+
+Depois de escolher o tipo, aparecem variantes e formatos.
+
+Exemplo:
+
+Leite
+→ Meio-Gordo
+→ 1 L
+→ Qualquer marca ou marca específica
+
+Neste momento existe apenas um ProductGroup de teste:
+
+Leite Meio-Gordo 1 L
+
+Por isso a interface só mostra Leite.
+
+OBJETIVO:
+
+Analisar os 9.112 produtos ativos existentes em public.products
+e preparar uma lista inicial de tipos de produto úteis para o utilizador.
+
+1. Consulta public.products apenas por leitura.
+
+2. Analisa:
+
+- name
+- brand
+- category
+- unit
+- package_quantity
+- package_unit
+- barcode
+
+3. Identifica tipos de produto claros e comuns que tenham produtos
+suficientes para criar grupos úteis.
+
+Dar prioridade a produtos de cabaz alimentar normal, por exemplo:
+
+- Leite
+- Arroz
+- Ovos
+- Água
+- Massa
+- Azeite
+- Açúcar
+- Farinha
+- Café
+- Iogurte
+- Manteiga
+- Atum
+- Cereais
+
+Mas NÃO assumes que todos existem.
+Confirma com os dados reais.
+
+4. Para cada tipo encontrado, indica:
+
+- nome do tipo;
+- número aproximado de produtos candidatos;
+- variantes claras encontradas;
+- formatos/quantidades claras encontradas;
+- se parece seguro criar ProductGroups automaticamente;
+- se precisa de revisão manual.
+
+5. Não usar apenas a categoria bruta do Open Food Facts como verdade,
+porque pode estar em vários idiomas ou ser inconsistente.
+
+Usar nome + categoria + unidade apenas para esta auditoria.
+
+6. NÃO criar grupos ainda.
+
+7. No final responde APENAS:
+
+- tipos de produto recomendados para a primeira listagem;
+- quantidade aproximada de candidatos por tipo;
+- variantes principais encontradas;
+- formatos principais encontrados;
+- tipos seguros para automatizar;
+- tipos que precisam de revisão;
+- recomendação da primeira lista que deve aparecer na app.
+
+NÃO FAÇAS ALTERAÇÕES.

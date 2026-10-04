@@ -1,0 +1,174 @@
+Implementa APENAS a primeira fase da seleção de produtos por grupos.
+
+MODO DE TRABALHO:
+Faz a alteração mínima possível.
+Não alteres Supabase.
+Não cries tabelas.
+Não alteres dados.
+Não alteres preços, lojas, comparador, localização ou cabazes.
+Não instales dependências desnecessárias.
+
+CONTEXTO:
+
+Existem no Supabase:
+
+public.product_groups
+Campos:
+- id
+- name
+- product_type
+- variant
+- package_quantity
+- package_unit
+- active
+- created_at
+
+public.product_group_items
+Campos:
+- id
+- group_id
+- product_id
+- created_at
+
+Existe atualmente um grupo ativo:
+
+Leite Meio-Gordo 1 L
+
+com:
+product_type = Leite
+variant = Meio-Gordo
+package_quantity = 1
+package_unit = l
+
+Tem 27 produtos reais associados.
+
+OBJETIVO DESTA TAREFA:
+
+A app deve conseguir ler public.product_groups e mostrar os grupos ativos na Home de forma simples.
+
+IMPORTANTE:
+Nesta tarefa NÃO implementar ainda:
+- escolha de marca;
+- adicionar grupo ao cabaz;
+- comparação de grupos;
+- GPS;
+- Maps;
+- novos preços;
+- alteração dos cabazes guardados.
+
+IMPLEMENTAÇÃO:
+
+1. Criar:
+services/product-groups.ts
+
+2. Criar uma função para obter grupos ativos do Supabase.
+
+Selecionar APENAS:
+- id
+- name
+- product_type
+- variant
+- package_quantity
+- package_unit
+
+Filtrar:
+active = true
+
+Usar ordenação determinística.
+
+3. Criar o tipo TypeScript necessário para ProductGroup.
+
+4. Na Home:
+
+Manter a pesquisa atual de produtos exatos.
+
+Adicionar uma secção simples ANTES da lista de produtos exatos com um título semelhante a:
+
+"Escolhe o que precisas"
+
+Mostrar os product_type disponíveis dos grupos ativos.
+
+Com os dados atuais deverá aparecer:
+
+Leite
+
+5. Ao tocar em "Leite":
+
+Mostrar as opções disponíveis desse product_type usando os grupos existentes.
+
+Com os dados atuais deverá ser possível chegar a:
+
+Leite
+→ Meio-Gordo
+→ 1 L
+
+Pode ser uma interface simples e coerente com o design atual.
+
+6. Ao tocar finalmente em "Leite Meio-Gordo 1 L":
+
+NÃO adicionar ainda ao cabaz.
+
+Mostrar apenas uma confirmação/estado visual simples de que o grupo foi selecionado, por exemplo:
+
+"Leite Meio-Gordo 1 L selecionado"
+
+e uma indicação:
+
+"Escolha de marca será adicionada no próximo passo."
+
+Não criar produto fictício.
+Não atribuir product_id ao grupo.
+Não atribuir preço.
+
+7. A pesquisa atual dos 9.112 produtos exatos deve continuar disponível e funcionar exatamente como antes.
+
+8. Não descarregar os 9.112 produtos.
+
+9. Não carregar product_group_items nesta tarefa.
+A Home precisa apenas de product_groups.
+
+10. Estados:
+- loading;
+- erro;
+- nenhum grupo disponível.
+
+Uma falha na leitura dos grupos NÃO deve impedir a pesquisa normal de produtos exatos.
+
+11. TESTES
+
+Adicionar testes para:
+- leitura apenas de grupos ativos;
+- campos selecionados corretamente;
+- ordenação;
+- estado vazio;
+- erro;
+- agrupamento por product_type;
+- seleção Leite → Meio-Gordo → 1 L;
+- pesquisa de produtos exatos continuar independente.
+
+Executar:
+- TypeScript
+- todos os testes existentes
+
+NÃO ALTERAR:
+- services/prices.ts
+- stores
+- prices
+- price_history
+- comparador
+- BasketContext
+- saved-baskets
+- localização
+- Supabase schema/dados
+- configuração Android/iOS
+
+No final responde APENAS:
+
+- ficheiros criados;
+- ficheiros alterados;
+- como ficou a seleção de grupos;
+- confirmação de que os produtos exatos continuam disponíveis;
+- confirmação de que nenhum grupo é ainda adicionado ao cabaz;
+- confirmação de que Supabase/dados/preços/lojas/comparador/cabazes não foram alterados;
+- resultado TypeScript;
+- número de testes passados e falhados.

@@ -1,0 +1,206 @@
+Faz APENAS um DRY RUN para preparar novos ProductGroups.
+
+MODO:
+FREE.
+
+NÃO alteres Supabase.
+NÃO cries ProductGroups.
+NÃO alteres product_group_items.
+NÃO alteres a interface.
+NÃO alteres ficheiros da app.
+NÃO importes preços.
+NÃO faças scraping.
+
+CONTEXTO:
+
+Já existe um ProductGroup real:
+
+Leite Meio-Gordo 1 L
+
+A app deve começar por mostrar estes tipos:
+
+- Leite
+- Arroz
+- Ovos
+- Água
+- Massa
+- Azeite
+- Açúcar
+- Farinha
+- Café
+
+OBJETIVO:
+
+Usar os produtos reais de public.products para propor ProductGroups
+claros e seguros.
+
+IMPORTANTE:
+
+Isto é apenas DRY RUN.
+Não escrever nada na base de dados.
+
+--------------------------------
+1. LEITE
+--------------------------------
+
+Preservar o grupo existente:
+
+Leite Meio-Gordo 1 L
+
+Propor também, apenas se houver correspondências claras:
+
+- Leite Magro 1 L
+- Leite Inteiro 1 L
+
+Excluir produtos claramente:
+
+- sem lactose
+- bio/biológico
+- bebidas vegetais
+- chocolate
+- café
+- culinária
+- fórmulas infantis
+- outros produtos que não sejam leite simples equivalente.
+
+--------------------------------
+2. ARROZ
+--------------------------------
+
+Propor grupos claros como:
+
+- Arroz Agulha 1 kg
+- Arroz Carolino 1 kg
+- Arroz Basmati 1 kg
+
+Não misturar tipos diferentes.
+
+--------------------------------
+3. OVOS
+--------------------------------
+
+Propor inicialmente por quantidade:
+
+- Ovos 6 unidades
+- Ovos 12 unidades
+
+Se "biológicos" não puderem ser distinguidos com segurança,
+não criar grupo separado neste dry run.
+
+--------------------------------
+4. ÁGUA
+--------------------------------
+
+Propor grupos simples como:
+
+- Água 0,5 L
+- Água 1,5 L
+
+Excluir:
+
+- água com sabores;
+- água tónica;
+- refrigerantes;
+- bebidas adicionadas.
+
+Não assumir "mineral" ou "natural" quando os dados não forem claros.
+
+--------------------------------
+5. MASSA
+--------------------------------
+
+Propor apenas formatos claramente identificáveis:
+
+- Esparguete 500 g
+- Fusilli 500 g
+- Penne 500 g
+
+Não misturar massas diferentes.
+
+--------------------------------
+6. AZEITE
+--------------------------------
+
+Propor:
+
+- Azeite Virgem Extra 750 ml
+
+Apenas produtos claramente classificados como azeite virgem extra.
+
+Não misturar óleo ou outros tipos.
+
+--------------------------------
+7. AÇÚCAR
+--------------------------------
+
+Propor:
+
+- Açúcar Branco 1 kg
+- Açúcar Amarelo 1 kg
+
+Não misturar adoçantes.
+
+--------------------------------
+8. FARINHA
+--------------------------------
+
+Propor:
+
+- Farinha de Trigo 1 kg
+- Farinha de Trigo Integral 1 kg
+
+Não misturar farinha de milho, arroz ou outras.
+
+--------------------------------
+9. CAFÉ
+--------------------------------
+
+Separar obrigatoriamente:
+
+- Café Moído 250 g
+- Café Solúvel 200 g
+
+NÃO criar grupos de cápsulas ainda.
+
+Não misturar café moído, solúvel e cápsulas.
+
+--------------------------------
+10. REGRAS DE SEGURANÇA
+--------------------------------
+
+Para cada grupo proposto:
+
+- usar apenas products.active = true;
+- identificar produtos por regras claras de nome/categoria/embalagem;
+- package quantity e unit têm de ser compatíveis;
+- não usar correspondência apenas por marca;
+- não incluir produtos ambíguos;
+- não incluir produto num grupo se houver dúvida relevante;
+- não criar duplicado do grupo já existente.
+
+--------------------------------
+11. RESULTADO
+--------------------------------
+
+Para cada ProductGroup proposto mostrar:
+
+- product_type;
+- variant;
+- package_quantity;
+- package_unit;
+- nome final do grupo;
+- número de produtos candidatos;
+- 5 exemplos de produtos;
+- número de candidatos excluídos por ambiguidade, se possível;
+- confiança: alta / precisa revisão.
+
+NO FINAL RESPONDE APENAS:
+
+- grupos propostos;
+- quantidade de produtos por grupo;
+- grupos de confiança alta;
+- grupos que precisam de revisão;
+- grupos que não foi possível criar com segurança;
+- confirmação de que nada foi alterado.
+
+NÃO FAÇAS ALTERAÇÕES.

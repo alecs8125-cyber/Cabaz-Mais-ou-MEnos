@@ -1,0 +1,100 @@
+CORRIGE O PUSH BLOQUEADO PELO GITHUB PUSH PROTECTION.
+
+MODO:
+FREE.
+
+CONTEXTO:
+
+O GitHub bloqueou o push porque encontrou uma Supabase Secret Key antiga em:
+
+commit:
+04af0499e93da77aa97de45e41040938e4cca8cf
+
+ficheiro:
+.replit
+
+O repositório remoto GitHub está VAZIO.
+
+IMPORTANTE:
+
+NÃO uses o link "unblock secret".
+NÃO faças force push da história contaminada.
+NÃO apagues os ficheiros atuais do projeto.
+NÃO alteres código funcional da app.
+NÃO mostres ou imprimas nenhuma secret.
+
+OBJETIVO:
+
+Preservar exatamente o working tree atual,
+mas criar uma NOVA história Git limpa,
+sem os commits antigos que continham secrets.
+
+1. Antes de tudo, verifica o WORKING TREE ATUAL por padrões de secrets.
+
+Pesquisar sem imprimir valores completos:
+
+- prefixo de chave secreta Supabase
+- service_role com valor literal
+- SUPABASE_SERVICE_ROLE_KEY= com valor
+- chaves Supabase hardcoded
+
+Verificar especialmente:
+
+.replit
+.env*
+artifacts/
+.github/
+
+Nomes de variáveis são permitidos.
+Valores secretos não são.
+
+2. Se existir alguma secret REAL no working tree atual:
+
+REMOVE-A do ficheiro e substitui apenas por uso de variável de ambiente.
+
+NÃO imprimir o valor.
+
+3. Confirmar que:
+
+.github/workflows/continente-daily-sync.yml
+
+está presente.
+
+4. Como o remoto está vazio, criar uma história Git NOVA e limpa,
+preservando todos os ficheiros atuais.
+
+Pode usar uma estratégia equivalente a:
+
+- criar orphan branch;
+- adicionar o working tree atual;
+- criar um único commit inicial limpo;
+- substituir o main local pelo novo main.
+
+NÃO incluir commits antigos.
+
+5. NÃO apagar os ficheiros atuais.
+
+6. Antes do push, fazer uma última verificação no NOVO commit para confirmar:
+
+- nenhuma chave secreta Supabase literal;
+- nenhuma service role key literal;
+- nenhuma chave privada hardcoded.
+
+7. Depois fazer push NORMAL usando:
+
+git push "$GIT_URL" main
+
+NÃO usar --force, porque o remoto está vazio.
+
+8. Confirmar que o push terminou com sucesso.
+
+NO FINAL RESPONDE APENAS:
+
+- working tree tinha secret atual: sim/não;
+- secret removida do working tree: sim/não/não aplicável;
+- história antiga contaminada removida do main novo: sim/não;
+- workflow GitHub presente: sim/não;
+- novo commit limpo criado: sim/não;
+- push: sucesso/erro;
+- branch remoto main criado: sim/não;
+- secrets detetados pelo GitHub no novo push: número.

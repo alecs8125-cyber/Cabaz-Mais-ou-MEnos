@@ -1,0 +1,422 @@
+PASSO MEGA — CONTINENTE ONLINE REAL + PRODUTOS + PREÇOS + APP
+
+MODO:
+POWER.
+
+ESTE PASSO É PARA IMPLEMENTAR.
+NÃO FAÇAS APENAS AUDITORIA.
+
+Resolve autonomamente pequenos problemas técnicos encontrados.
+
+====================================================
+OBJETIVO FINAL
+====================================================
+
+Quero transformar o adaptador Continente já existente numa fonte
+REAL do Cabaz Mais ou Menos.
+
+Fluxo final:
+
+Continente público
+→ produto externo
+→ nosso product_id
+→ Continente Online
+→ public.prices
+→ price_history
+→ comparador da app
+
+IMPORTANTE:
+
+Os preços recolhidos são do canal ONLINE.
+
+NUNCA atribuir estes preços a uma loja física Continente.
+
+Mostrar sempre claramente:
+
+"Continente Online"
+
+====================================================
+1. SUPABASE SERVER-SIDE
+====================================================
+
+Usar:
+
+SUPABASE_SERVICE_ROLE_KEY
+
+APENAS no api-server.
+
+Nunca colocar a chave:
+
+- na app Expo;
+- em EXPO_PUBLIC_;
+- em logs;
+- no Git;
+- em ficheiros públicos.
+
+Se a secret não existir:
+
+IMPLEMENTAR TODO O CÓDIGO,
+mas NÃO executar a parte de escrita real.
+
+No relatório final indicar claramente que falta a secret.
+
+====================================================
+2. RESOLUÇÃO DO PRODUTO
+====================================================
+
+Para cada produto Continente:
+
+source_type = continente
+external_product_id = SKU confirmado
+
+Resolver nesta ordem:
+
+1. external_product_mappings existente;
+
+2. produto existente:
+   source_type = continente
+   external_id = SKU;
+
+3. barcode exato, se existir;
+
+4. name_brand_exact_unique já implementado,
+   apenas quando realmente seguro;
+
+5. se continuar unmatched ou ambiguous:
+
+   CRIAR automaticamente um produto source-native.
+
+IMPORTANTE:
+
+Não deixar de importar um produto apenas porque não existe
+no catálogo Open Food Facts.
+
+====================================================
+3. PRODUTO SOURCE-NATIVE
+====================================================
+
+Para um produto Continente sem correspondência segura,
+criar em public.products:
+
+- name = nome real;
+- brand = marca real quando disponível;
+- barcode = NULL se não existir;
+- image_url = imagem pública quando disponível;
+- active = true;
+- source_type = 'continente';
+- external_id = SKU;
+- package_quantity somente quando extraída com confiança;
+- package_unit somente quando extraída com confiança;
+- unit = formato/unidade real quando seguro;
+- NÃO inventar categoria;
+- NÃO inventar barcode;
+- NÃO inventar quantidade.
+
+Antes de INSERT:
+
+procurar novamente por:
+
+source_type='continente'
+external_id=SKU
+
+para tornar a operação idempotente.
+
+Se existirem múltiplos produtos para o mesmo SKU:
+
+NÃO escolher arbitrariamente.
+Marcar erro para esse item.
+
+Em sincronizações seguintes:
+
+atualizar nome/marca/imagem/formato do produto source-native
+quando os novos dados forem válidos.
+
+====================================================
+4. MAPPING
+====================================================
+
+Garantir um registo em:
+
+public.external_product_mappings
+
+para cada produto resolvido.
+
+Para produto source-native:
+
+match_method = source_native
+confidence = 1
+verified = true
+
+Para name_brand_exact_unique:
+
+match_method = name_brand_exact_unique
+confidence coerente com a regra existente
+verified = true somente se a regra for determinística e única.
+
+Ambiguidades nunca podem ligar ao produto errado.
+
+====================================================
+5. CONTINENTE ONLINE
+====================================================
+
+Resolver EXATAMENTE:
+
+stores.source_type = 'continente'
+stores.external_id = 'online'
+
+Deve existir exatamente UMA loja:
+
+Continente Online.
+
+Nunca criar store_id físico.
+
+====================================================
+6. PREÇO
+====================================================
+
+Para cada produto válido:
+
+price.source_type = 'continente'
+
+price.external_id:
+
+'online:' + SKU
+
+source_reference:
+
+URL pública do produto.
+
+store_id:
+
+Continente Online.
+
+currency:
+
+EUR.
+
+captured_at:
+
+momento real da recolha.
+
+valid_from:
+
+captured_at.
+
+POLÍTICA DO CABAZ:
+
+valid_until = captured_at + 36 horas.
+
+Isto é uma política local de frescura,
+não uma validade fornecida pelo Continente.
+
+Se a sincronização parar,
+o preço expira sozinho.
+
+verification_status:
+
+verified
+
+APENAS para dados realmente recolhidos e validados.
+
+====================================================
+7. GRAVAÇÃO ATÓMICA
+====================================================
+
+NÃO fazer INSERT/UPDATE direto manual em prices.
+
+Usar a RPC já criada:
+
+public.upsert_verified_price_with_history
+
+Ela deve:
+
+- criar o preço inicial;
+- atualizar o preço atual;
+- renovar valid_until;
+- adicionar price_history apenas na primeira observação
+  e quando o preço mudar.
+
+Uma repetição com o mesmo preço:
+
+NÃO deve criar histórico duplicado.
+
+====================================================
+8. DRY RUN E COMMIT
+====================================================
+
+O comando deve suportar:
+
+DRY RUN por defeito.
+
+Exemplo:
+
+pnpm --filter @workspace/api-server run sync:continente -- --limit=20
+
+Sem --commit:
+
+ZERO escritas.
+
+Com:
+
+--commit
+
+permite escrita.
+
+Adicionar proteção para impedir commit acidental.
+
+====================================================
+9. TESTE REAL CONTROLADO
+====================================================
+
+Depois de:
+
+- typecheck passar;
+- build passar;
+- testes passarem;
+
+SE SUPABASE_SERVICE_ROLE_KEY ESTIVER CONFIGURADA:
+
+executar UMA sincronização REAL controlada com:
+
+--limit=20
+--offset=0
+--commit
+
+Não executar mais de 20 produtos neste teste.
+
+Depois consultar READ-ONLY e confirmar:
+
+- produtos Continente criados/reutilizados;
+- mappings;
+- prices;
+- price_history;
+- Continente Online.
+
+====================================================
+10. APP
+====================================================
+
+Atualizar a app Expo para compreender lojas online.
+
+IMPORTANTE:
+
+Continente Online:
+
+- deve aparecer como "Continente Online";
+- NÃO mostrar distância;
+- NÃO mostrar "perto de ti";
+- NÃO inventar município/distrito;
+- indicar claramente "Online".
+
+O comparador pode considerar uma loja online
+independentemente da zona manual selecionada.
+
+Mas deve ficar visualmente distinta das lojas físicas.
+
+Não alterar a lógica das lojas físicas.
+
+====================================================
+11. PESQUISA DE PRODUTOS
+====================================================
+
+Produtos source-native Continente ativos devem poder aparecer
+na pesquisa normal por:
+
+- nome;
+- marca.
+
+A ausência de barcode NÃO pode impedir pesquisa/adicionar ao cabaz.
+
+Não duplicar resultados desnecessariamente se existir mapping para
+um produto já existente.
+
+====================================================
+12. PRODUCTGROUPS
+====================================================
+
+NÃO adicionar automaticamente produtos Continente aos ProductGroups
+neste passo.
+
+Não arriscar classificações erradas.
+
+Este passo deve tornar funcional primeiro a comparação de produtos
+exatos.
+
+====================================================
+13. TESTES
+====================================================
+
+Adicionar testes para:
+
+- criação source-native;
+- idempotência por source_type + external_id;
+- mapping source_native;
+- reutilização de mapping existente;
+- Continente Online;
+- price external_id online:SKU;
+- validade 36 horas;
+- RPC chamada corretamente;
+- mesmo preço não duplica histórico;
+- preço alterado gera histórico;
+- produto sem barcode continua utilizável;
+- online não recebe distância;
+- online não depende da zona manual;
+- dry run = zero escritas;
+- commit exige service role;
+- commit limitado funciona.
+
+Manter TODOS os testes existentes.
+
+Executar:
+
+- typecheck API;
+- build API;
+- testes API;
+- typecheck relevante da app;
+- testes da app.
+
+Não gastar tempo nos erros antigos do mockup-sandbox
+se continuarem sem relação com esta funcionalidade.
+
+====================================================
+14. NÃO FAZER
+====================================================
+
+NÃO implementar:
+
+- GPS;
+- OCR;
+- comunidade;
+- outro supermercado;
+- ProductGroups novos;
+- scraping com browser;
+- proxies;
+- CAPTCHA bypass;
+- redesign geral.
+
+FOCO TOTAL NO CONTINENTE ONLINE.
+
+====================================================
+NO FINAL RESPONDE APENAS
+====================================================
+
+- ficheiros criados;
+- ficheiros alterados;
+- service role configurada: sim/não;
+- Continente Online resolvido: sim/não;
+- produtos processados no teste;
+- produtos source-native criados;
+- produtos existentes reutilizados;
+- mappings criados;
+- preços gravados;
+- history criado;
+- preços com validade 36h;
+- erros;
+- dry run continua seguro: sim/não;
+- pesquisa encontra produtos Continente: sim/não;
+- comparador aceita Continente Online: sim/não;
+- distância escondida para online: sim/não;
+- testes passados/falhados;
+- typecheck/build;
+- resultado do teste end-to-end;
+- bloqueios restantes.

@@ -1,0 +1,120 @@
+Faz APENAS uma auditoria de leitura para ampliar a lista de tipos
+de produto do Cabaz Mais ou Menos.
+
+MODO:
+FREE.
+
+NÃO alteres ficheiros.
+NÃO alteres Supabase.
+NÃO cries ProductGroups.
+NÃO alteres a interface.
+NÃO importes preços.
+
+CONTEXTO:
+
+Já existem ProductGroups para alguns tipos:
+
+- Leite
+- Arroz
+- Massa
+- Azeite
+- Açúcar
+- Farinha
+- Café
+
+A base possui aproximadamente 9.112 produtos ativos.
+
+A lista atual ainda é demasiado pequena para uma app de supermercado.
+
+OBJETIVO:
+
+Encontrar entre 30 e 50 tipos de produto úteis e comuns
+que possam vir a aparecer em:
+
+"Escolhe o que precisas"
+
+Analisa public.products usando:
+
+- name
+- brand
+- category
+- unit
+- package_quantity
+- package_unit
+- barcode
+
+Dar prioridade a produtos de supermercado comuns.
+
+Procurar, quando existirem nos dados, tipos como:
+
+- Leite
+- Arroz
+- Ovos
+- Água
+- Massa
+- Azeite
+- Óleo
+- Açúcar
+- Sal
+- Farinha
+- Café
+- Chá
+- Iogurte
+- Manteiga
+- Queijo
+- Fiambre
+- Atum
+- Sardinha
+- Cereais
+- Bolachas
+- Chocolate
+- Pão
+- Tostas
+- Feijão
+- Grão
+- Ervilhas
+- Milho
+- Tomate
+- Polpa de tomate
+- Ketchup
+- Maionese
+- Mostarda
+- Sumos
+- Refrigerantes
+- Batatas fritas
+- Gelados
+- Detergente da roupa
+- Detergente da loiça
+- Papel higiénico
+- Papel de cozinha
+
+Mas NÃO assumes que todos existem.
+
+Confirma com os dados reais.
+
+Para cada tipo encontrado indica:
+
+- nome do tipo;
+- número aproximado de produtos candidatos;
+- variantes principais;
+- formatos principais;
+- se é seguro criar ProductGroups;
+- se precisa de revisão.
+
+IMPORTANTE:
+
+Não queremos criar grupos apenas porque uma palavra aparece no nome.
+
+Evitar falsos positivos.
+
+No final responde APENAS:
+
+- lista recomendada de 30 a 50 tipos;
+- quantidade aproximada de produtos por tipo;
+- tipos de confiança alta;
+- tipos que precisam de revisão;
+- tipos que não têm dados suficientes;
+- quais 20 tipos recomenda criar primeiro depois dos já existentes;
+- confirmação de que nada foi alterado.
+
+NÃO FAÇAS ALTERAÇÕES.

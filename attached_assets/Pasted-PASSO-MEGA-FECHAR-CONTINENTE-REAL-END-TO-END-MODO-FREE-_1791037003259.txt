@@ -1,0 +1,255 @@
+PASSO MEGA — FECHAR CONTINENTE REAL END-TO-END
+
+MODO:
+FREE.
+
+IMPORTANTE:
+A importação REAL já aconteceu com sucesso.
+
+Supabase tem agora:
+- 18 prices source_type='continente';
+- 18 price_history;
+- 18 mappings;
+- 17 products source-native;
+- 1 produto existente reutilizado;
+- 0 duplicados;
+- validade de 36h correta;
+- todos apontam para Continente Online.
+
+NÃO executar novo --commit.
+NÃO gravar novos preços.
+NÃO alterar schema.
+NÃO executar SQL.
+NÃO processar mais páginas Continente.
+NÃO implementar outro supermercado.
+
+OBJETIVOS:
+
+1. corrigir o contrato da resposta da RPC;
+2. validar o fluxo real Supabase → app sem depender exclusivamente
+   do browser visual;
+3. deixar o Continente completamente confirmado antes de passarmos
+   à sincronização em massa.
+
+==================================================
+1. CORRIGIR RESPOSTA DA RPC
+==================================================
+
+PROBLEMA ATUAL:
+
+A RPC public.upsert_verified_price_with_history gravou corretamente
+preço e histórico, mas o cliente devolveu:
+
+"Invalid RPC result; price/history counts cannot be confirmed."
+
+NÃO alterar a RPC no Supabase.
+
+Inspeciona:
+
+- continente-sync-repository.ts
+- continente-sync.ts
+- tipos/validators usados para interpretar o retorno da RPC
+- resposta real já observada pelo cliente Supabase/PostgREST
+
+Descobrir o formato REAL retornado pela RPC.
+
+IMPORTANTE:
+Não imprimir dados sensíveis.
+
+Corrigir o cliente para aceitar exatamente o formato real legítimo
+da RPC.
+
+Não mascarar respostas inválidas.
+Continuar a validar tipos estritamente.
+
+==================================================
+2. TESTES DO CONTRATO RPC
+==================================================
+
+Criar testes que cubram:
+
+- formato real da resposta da RPC;
+- UUID retornado corretamente;
+- resposta inesperada continua a falhar;
+- erro HTTP continua a falhar;
+- ausência de retorno não é tratada como sucesso falso.
+
+O erro:
+
+"Invalid RPC result; price/history counts cannot be confirmed."
+
+não deve voltar a acontecer com uma resposta real válida.
+
+==================================================
+3. COMANDO READ-ONLY DE VERIFICAÇÃO
+==================================================
+
+Criar ou adaptar um comando, por exemplo:
+
+pnpm --filter @workspace/api-server run verify:continente
+
+Este comando deve ser SOMENTE LEITURA.
+
+Deve consultar o lote já importado e confirmar:
+
+- 18 mappings;
+- 18 prices;
+- 18 históricos iniciais;
+- preços > 0;
+- EUR;
+- verified;
+- valid_until > captured_at;
+- diferença valid_until-captured_at = 36h;
+- todos store_id = Continente Online;
+- external_id começa por online:;
+- zero duplicados;
+- products/mappings coerentes.
+
+NÃO depender de números hardcoded para futuros lotes,
+mas pode reportar os números atuais encontrados.
+
+==================================================
+4. VALIDAR SERVIÇOS DA APP COM DADOS REAIS
+==================================================
+
+Sem mocks para esta parte, usar READ-ONLY contra o Supabase real.
+
+Escolher:
+
+Banana Continente
+
+ou outro produto do lote existente.
+
+Confirmar:
+
+A) services/products encontra o produto;
+
+B) adicionar uma representação equivalente ao cabaz pelos serviços
+   e lógica real da app;
+
+C) services/prices devolve o price Continente real;
+
+D) lib/comparison cria resultado para Continente Online;
+
+E) total corresponde ao preço real e quantidade;
+
+F) services/stores reconhece:
+   store_type = online;
+
+G) store-channel classifica como online;
+
+H) localização manual NÃO remove Continente Online.
+
+Não escrever nada.
+
+==================================================
+5. TESTE INTEGRADO DA APP
+==================================================
+
+Criar um teste de integração determinístico do fluxo:
+
+produto real
+→ basket line
+→ preço real
+→ comparação
+→ Continente Online
+→ detalhe
+
+Verificar:
+
+- nome da loja = Continente Online;
+- preço correto;
+- indication/flag online;
+- sem distância;
+- sem município inventado;
+- sem distrito inventado;
+- detalhe contém linha do produto;
+- subtotal correto;
+- total correto;
+- captured_at/atualização disponível;
+- preço expirado não entra.
+
+Este teste não deve depender de sessão de browser.
+
+==================================================
+6. BROWSER
+==================================================
+
+Depois dos testes determinísticos passarem:
+
+tentar UMA vez o percurso visual no browser:
+
+pesquisar Banana Continente
+→ adicionar
+→ comparar
+→ abrir Continente Online
+→ detalhe.
+
+Se a infraestrutura/browser perder sessão novamente:
+
+NÃO considerar isso uma falha funcional da app
+se os testes reais de integração tiverem passado.
+
+Registar separadamente:
+
+browser infrastructure inconclusive
+
+==================================================
+7. NÃO FAZER NOVO COMMIT
+==================================================
+
+Muito importante:
+
+NÃO executar:
+
+sync:continente --commit
+
+neste passo.
+
+O lote real já existe.
+
+Apenas leitura e correções de código/testes.
+
+==================================================
+8. EXECUTAR
+==================================================
+
+Executar:
+
+- verify:continente;
+- testes API completos;
+- typecheck API;
+- build API;
+- testes app completos;
+- typecheck app;
+- novo teste integrado com Supabase real.
+
+==================================================
+NO FINAL RESPONDE APENAS
+==================================================
+
+- causa exata do erro de resposta RPC;
+- correção aplicada;
+- formato real da resposta RPC;
+- ficheiros alterados;
+- verify:continente passou: sim/não;
+- mappings reais encontrados;
+- prices reais encontrados;
+- history real encontrado;
+- duplicados: número;
+- Banana Continente encontrada: sim/não;
+- preço Supabase da Banana;
+- services/prices devolveu o preço: sim/não;
+- comparação gerou Continente Online: sim/não;
+- total calculado;
+- online não depende de zona: sim/não;
+- distância escondida: sim/não;
+- detalhe validado: sim/não;
+- teste integrado real passou: sim/não;
+- browser visual passou / inconclusivo;
+- testes API passados/falhados;
+- testes app passados/falhados;
+- typecheck/build;
+- confirmação de ZERO novas escritas;
+- conclusão:
+  Continente real está funcional end-to-end: sim/não.

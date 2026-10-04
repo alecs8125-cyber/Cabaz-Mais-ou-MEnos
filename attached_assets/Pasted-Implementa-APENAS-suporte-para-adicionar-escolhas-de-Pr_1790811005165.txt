@@ -1,0 +1,315 @@
+Implementa APENAS suporte para adicionar escolhas de ProductGroup ao cabaz.
+
+MODO:
+FREE.
+
+Faz a alteração mínima e segura.
+Não alteres Supabase/schema/dados.
+Não alteres preços, lojas, GPS ou Maps.
+NÃO implementes ainda comparação de grupos.
+NÃO instales dependências.
+
+ESTADO ATUAL CONFIRMADO:
+
+- A Home lê product_groups ativos.
+- É possível selecionar:
+  tipo → variante → formato.
+- Depois são carregados apenas os produtos ativos associados ao group_id.
+- Existe:
+  "Qualquer marca"
+  ou uma marca específica.
+- "Qualquer marca" fica semanticamente:
+  groupId + brand null.
+- Uma marca específica fica:
+  groupId + brand.
+- Nenhuma seleção genérica tem product_id.
+- Produtos exatos continuam a funcionar.
+- TypeScript passou.
+- 83 testes passaram, 0 falharam.
+
+OBJETIVO:
+
+Permitir adicionar ao cabaz uma escolha genérica como:
+
+Leite Meio-Gordo 1 L
+Qualquer marca
+
+OU:
+
+Leite Meio-Gordo 1 L
+Mimosa
+
+SEM transformar essa escolha num produto fictício.
+
+-----------------------------------
+1. PRESERVAR LINHAS EXATAS
+-----------------------------------
+
+O sistema atual de produtos exatos deve continuar a funcionar.
+
+Uma linha exata continua semanticamente equivalente a:
+
+{
+  kind: 'exact',
+  productId: '...',
+  quantity: 1
+}
+
+Não é obrigatório alterar imediatamente todos os objetos antigos para
+terem kind: 'exact'.
+
+IMPORTANTE:
+
+Objetos antigos sem "kind" devem continuar a ser interpretados como
+produtos exatos.
+
+Não fazer migração destrutiva.
+
+-----------------------------------
+2. NOVA LINHA GENÉRICA
+-----------------------------------
+
+Adicionar um tipo explícito para linha genérica.
+
+Semanticamente:
+
+{
+  kind: 'group',
+  groupId: '...',
+  groupName: 'Leite Meio-Gordo 1 L',
+  brand: null,
+  quantity: 1
+}
+
+Para marca específica:
+
+{
+  kind: 'group',
+  groupId: '...',
+  groupName: 'Leite Meio-Gordo 1 L',
+  brand: 'mimosa',
+  brandLabel: 'MIMOSA',
+  quantity: 1
+}
+
+A implementação pode adaptar os nomes ao código atual.
+
+REGRAS:
+
+- groupId é obrigatório;
+- não criar productId;
+- não criar produto fictício;
+- não criar preço fictício;
+- guardar informação suficiente para apresentar a linha sem precisar
+  consultar novamente o catálogo;
+- preservar o texto visual da marca quando disponível.
+
+-----------------------------------
+3. IDENTIDADE DA LINHA
+-----------------------------------
+
+Produtos exatos continuam identificados por productId.
+
+Linhas genéricas devem ser identificadas por:
+
+groupId + brand
+
+Assim:
+
+Leite Meio-Gordo 1 L · Qualquer marca
+
+e
+
+Leite Meio-Gordo 1 L · Mimosa
+
+são duas linhas diferentes.
+
+Adicionar novamente exatamente a mesma combinação deve aumentar a
+quantidade da linha existente, e não criar duplicado.
+
+-----------------------------------
+4. BASKETCONTEXT
+-----------------------------------
+
+Adaptar BasketContext e os helpers necessários para aceitarem:
+
+- linhas exatas existentes;
+- linhas genéricas novas.
+
+Preservar:
+- adicionar;
+- aumentar quantidade;
+- diminuir quantidade;
+- remover;
+- limpar cabaz.
+
+Não quebrar o comportamento atual dos produtos exatos.
+
+-----------------------------------
+5. HOME
+-----------------------------------
+
+Depois de selecionar:
+
+Leite
+→ Meio-Gordo
+→ 1 L
+→ Qualquer marca
+
+mostrar botão:
+
+"Adicionar ao cabaz"
+
+Ao tocar:
+
+adicionar a linha genérica ao cabaz.
+
+O mesmo para uma marca específica.
+
+Dar feedback visual simples de sucesso.
+
+Não resolver ainda para um SKU.
+
+-----------------------------------
+6. APRESENTAÇÃO DO CABAZ
+-----------------------------------
+
+No ecrã atual onde o utilizador vê os produtos do cabaz:
+
+Para linha genérica mostrar, por exemplo:
+
+Leite Meio-Gordo 1 L
+Qualquer marca
+Quantidade: 1
+
+ou:
+
+Leite Meio-Gordo 1 L
+Mimosa
+Quantidade: 1
+
+IMPORTANTE:
+
+Não mostrar preço estimado para linha genérica.
+
+Se o UI atual exige subtotal/preço para cada linha, adaptar para mostrar
+algo como:
+
+"Preço calculado na comparação"
+
+em vez de 0,00 €.
+
+NUNCA usar 0,00 € como se fosse um preço real.
+
+-----------------------------------
+7. CABAZES GUARDADOS
+-----------------------------------
+
+Preservar completamente leitura dos cabazes antigos:
+
+cabaz-mais-ou-menos:saved-baskets:v1
+
+Não apagar.
+Não reescrever automaticamente.
+Não invalidar.
+
+Adicionar suporte compatível para guardar cabazes que contenham linhas
+genéricas.
+
+Usar uma versão nova, por exemplo v2, se essa for a solução mais segura.
+
+REQUISITOS:
+
+- cabaz antigo v1 continua a carregar;
+- linhas antigas continuam exatas;
+- cabaz novo pode conter exatos + genéricos;
+- groupId, groupName, brand, brandLabel e quantity devem sobreviver ao
+  guardar/carregar quando aplicável;
+- carregar um cabaz guardado não deve inventar productId para grupos.
+
+Não alterar dados existentes no AsyncStorage durante a leitura.
+
+-----------------------------------
+8. COMPARADOR
+-----------------------------------
+
+NÃO implementar ainda resolução de grupos para preços.
+
+Se o utilizador abrir a comparação com uma linha genérica no cabaz,
+não deixar a app interpretar a linha como produto exato.
+
+Mostrar temporariamente um estado/mensagem segura, por exemplo:
+
+"A comparação de escolhas por grupo será ativada no próximo passo."
+
+IMPORTANTE:
+
+Os cabazes compostos APENAS por produtos exatos devem continuar a usar
+o comparador atual exatamente como antes.
+
+Não alterar services/prices.ts.
+
+-----------------------------------
+9. TESTES
+-----------------------------------
+
+Adicionar testes para:
+
+- linha exata antiga sem kind continua válida;
+- adicionar produto exato continua igual;
+- adicionar grupo "qualquer marca";
+- adicionar grupo com marca;
+- grupo nunca recebe productId;
+- mesma combinação groupId + brand aumenta quantidade;
+- marcas diferentes criam linhas distintas;
+- remover linha genérica;
+- aumentar/diminuir quantidade genérica;
+- limpar cabaz misto;
+- apresentação de "Qualquer marca";
+- apresentação de marca específica;
+- linha genérica não recebe preço/subtotal fictício;
+- v1 continua legível;
+- v2 guarda e restaura linha genérica;
+- cabaz misto exato + genérico;
+- comparador não trata linha genérica como productId;
+- comparador exclusivamente exato continua com comportamento atual.
+
+Executar:
+- TypeScript;
+- todos os testes existentes.
+
+-----------------------------------
+10. NÃO ALTERAR
+-----------------------------------
+
+Não alterar:
+- Supabase schema;
+- dados Supabase;
+- public.products;
+- public.product_groups;
+- public.product_group_items;
+- public.prices;
+- public.price_history;
+- stores;
+- services/prices.ts;
+- GPS;
+- Maps;
+- configuração Android/iOS.
+
+-----------------------------------
+11. NO FINAL RESPONDE APENAS
+-----------------------------------
+
+- ficheiros criados;
+- ficheiros alterados;
+- estrutura usada para linha exata e linha genérica;
+- como funciona a identidade groupId + brand;
+- como ficou adicionar/aumentar/diminuir/remover grupo;
+- como ficou a apresentação sem preço fictício;
+- como ficou compatibilidade v1/v2 dos cabazes guardados;
+- comportamento temporário do comparador quando existe grupo;
+- confirmação de que comparador exato continua igual;
+- confirmação de que services/prices.ts não foi alterado;
+- confirmação de que Supabase/schema/dados não foram alterados;
+- resultado TypeScript;
+- número total de testes passados e falhados.

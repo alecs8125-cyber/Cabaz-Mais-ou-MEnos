@@ -1,0 +1,250 @@
+Faz UMA MEGA-AUDITORIA de leitura para encontrar TODOS os novos
+ProductGroups seguros que possamos adicionar agora ao Cabaz Mais ou Menos.
+
+MODO:
+FREE.
+
+NÃO alteres ficheiros.
+NÃO alteres Supabase.
+NÃO cries ProductGroups.
+NÃO cries SQL.
+NÃO alteres a interface.
+NÃO importes preços.
+NÃO instales dependências.
+
+OBJETIVO:
+
+Analisar os 9.112 produtos ativos de public.products e encontrar,
+numa única auditoria, o máximo possível de ProductGroups úteis,
+seguros e comparáveis.
+
+JÁ EXISTEM TIPOS/GRUPOS RELACIONADOS COM:
+
+- Açúcar
+- Água
+- Arroz
+- Azeite
+- Bolacha
+- Café
+- Cereais de pequeno-almoço
+- Chocolate
+- Farinha
+- Fiambre
+- Leite
+- Manteiga
+- Massa
+- Mostarda
+- Óleo alimentar
+- Queijo
+
+NÃO propor duplicados dos ProductGroups já existentes.
+
+--------------------------------
+TIPOS A ANALISAR
+--------------------------------
+
+Analisar prioritariamente:
+
+- Ovos
+- Iogurte
+- Natas
+- Leite condensado
+- Leite evaporado
+- Queijo fresco
+- Margarina
+- Pão
+- Tostas
+- Atum
+- Sardinha
+- Cavala
+- Salsichas
+- Feijão
+- Grão-de-bico
+- Ervilhas
+- Milho doce
+- Tomate pelado
+- Polpa de tomate
+- Passata
+- Ketchup
+- Maionese
+- Molhos
+- Vinagre
+- Azeitonas
+- Pickles
+- Compotas
+- Marmelada
+- Mel
+- Cereais adicionais
+- Granola
+- Muesli
+- Sumos
+- Néctares
+- Refrigerantes
+- Água com gás
+- Ice tea
+- Chá
+- Infusões
+- Batatas fritas
+- Snacks
+- Gelados
+- Sorvetes
+- Chocolate em pó
+- Cacau em pó
+- Fermento
+- Sal
+- Especiarias
+- Caldos
+- Sopas
+- Conservas
+- Fruta em calda
+
+E também procurar OUTROS tipos comuns de supermercado
+presentes nos dados, mesmo que não estejam nesta lista.
+
+--------------------------------
+REGRA PRINCIPAL
+--------------------------------
+
+Um ProductGroup só pode ser classificado como:
+
+SEGURO PARA CRIAR
+
+quando tiver PELO MENOS 5 produtos realmente equivalentes.
+
+Os produtos devem ter:
+
+- mesmo tipo;
+- mesma variante relevante;
+- mesma quantidade;
+- mesma unidade;
+- finalidade equivalente.
+
+Usar:
+
+- id
+- name
+- brand
+- category
+- barcode
+- package_quantity
+- package_unit
+- unit
+- active
+
+Apenas products.active = true.
+
+--------------------------------
+NÃO MISTURAR
+--------------------------------
+
+Não misturar automaticamente:
+
+- normal com Bio/Organic;
+- normal com light;
+- normal com zero;
+- normal com sem açúcar;
+- normal com sem lactose;
+- normal com sem glúten;
+- normal com integral;
+- sabores diferentes;
+- percentagens diferentes quando forem relevantes;
+- peso total com peso escorrido;
+- seco com cozido/enlatado;
+- líquido com sólido;
+- multipacks diferentes;
+- tamanhos diferentes;
+- produtos preparados com produto simples;
+- cortes diferentes de carne/peixe;
+- embalagens individuais com caixas/familiares.
+
+Não usar apenas a marca para decidir equivalência.
+
+--------------------------------
+FORMATOS
+--------------------------------
+
+Normalizar apenas quando for matematicamente equivalente:
+
+- 1 L = 1000 ml
+- 0,5 L = 500 ml
+- 1 kg = 1000 g
+
+Não assumir equivalência quando houver dúvida.
+
+--------------------------------
+PARA CADA GRUPO SEGURO
+--------------------------------
+
+Mostrar:
+
+- product_type
+- variant
+- package_quantity
+- package_unit
+- nome final sugerido
+- número de produtos seguros
+- TODOS os product_id seguros
+- 5 exemplos com name + brand + barcode
+- principais exclusões
+- confiança = alta
+
+--------------------------------
+GRUPOS COM DÚVIDAS
+--------------------------------
+
+Separar numa secção:
+
+PRECISA DE REVISÃO
+
+Mostrar apenas:
+
+- nome possível do grupo
+- número de candidatos
+- razão da dúvida
+
+NÃO incluir os IDs desses grupos na lista final segura.
+
+--------------------------------
+IMPORTANTE
+--------------------------------
+
+Quero aproveitar esta auditoria para evitar dezenas de passos.
+
+Por isso:
+
+- procura em TODO o catálogo;
+- tenta encontrar o máximo de grupos seguros;
+- não pares nos primeiros 10;
+- podes propor até 40 novos ProductGroups seguros;
+- é preferível ter menos grupos corretos do que muitos grupos errados.
+
+--------------------------------
+NO FINAL RESPONDE APENAS
+--------------------------------
+
+1. total de produtos ativos analisados;
+
+2. total de NOVOS ProductGroups seguros encontrados;
+
+3. total de NOVOS tipos distintos que esses grupos acrescentam;
+
+4. tabela com:
+   - nome do grupo
+   - product_type
+   - variant
+   - package_quantity
+   - package_unit
+   - quantidade de produtos
+
+5. para CADA grupo seguro:
+   - TODOS os product_id seguros;
+
+6. grupos que precisam de revisão;
+
+7. tipos sem dados suficientes;
+
+8. confirmação de que NÃO criaste SQL;
+
+9. confirmação de que NADA foi alterado.
+
+NÃO FAÇAS ALTERAÇÕES.

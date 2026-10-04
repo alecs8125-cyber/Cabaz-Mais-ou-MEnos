@@ -1,0 +1,62 @@
+Quero agora redesenhar DE VERDADE o ecrã Início do Cabaz Mais ou Menos.
+
+A imagem que anexei é a referência visual principal. O resultado atual não está suficientemente próximo dela.
+
+IMPORTANTE:
+Nesta tarefa altera APENAS o ecrã Início e componentes visuais usados diretamente por ele.
+Não alteres lógica funcional, Supabase, comparação, cabaz, localização ou navegação.
+
+OBJETIVO VISUAL:
+Quero que o ecrã Início se aproxime claramente do mockup anexado, e não apenas que use as mesmas cores.
+
+FAZ:
+- Fundo muito claro/quase branco.
+- Cabeçalho moderno e compacto.
+- Área de marca semelhante à referência:
+  ícone/logo à esquerda e “Cabaz Mais ou Menos” ao lado.
+- Remove o grande banner verde atual “Descobre onde o teu cabaz fica mais barato”.
+- Mantém o slogan, se necessário, de forma muito mais discreta.
+- Adiciona uma barra de pesquisa visual moderna “Pesquisar produtos...”.
+- Cria a secção de categorias em cartões horizontais/arredondados, semelhante à referência.
+- Cria uma secção de produtos com cartões/listas modernos, usando os produtos reais já carregados pela app.
+- Cada produto deve continuar a usar a funcionalidade real existente de adicionar ao cabaz.
+- Não inventes preços.
+- Se não existir imagem real do produto, usa um placeholder elegante; não inventes fotografias de produtos.
+- Mantém acesso ao último cabaz/cabazes guardados, mas integra-o de forma visualmente coerente e menos dominante.
+- Mantém a localização manual existente, mas apresenta-a de forma compacta.
+- Mantém a bottom navigation funcional.
+- Usa os design tokens já criados:
+  verde principal #16A34A
+  verde secundário #22C55E
+  laranja #F97316
+  fundo #F8FAF6
+  texto #374151
+- Cartões brancos, border radius moderno, sombras subtis e bom espaçamento.
+- Usa a imagem anexada como referência de proporções, hierarquia, densidade e acabamento.
+- Não copies elementos que não existem funcionalmente na app.
+- Não cries Perfil, notificações, favoritos ou outras funcionalidades inexistentes apenas porque aparecem no conceito.
+- Não uses GPS.
+
+LOGO:
+A imagem anexada é uma referência de branding, não deve ser usada inteira como imagem dentro da app.
+Se ainda não existir um ficheiro isolado do logo, cria temporariamente a área de marca usando o ícone existente + texto.
+Não recortes automaticamente o logo do screenshot/mockup.
+
+SEGURANÇA:
+- Não alteres Supabase.
+- Não alteres schema.
+- Não alteres services de comparação/preços.
+- Não alteres cálculos.
+- Não removas funcionalidades existentes.
+- Mantém Android e iOS.
+- Executa TypeScript e todos os testes.
+
+Antes de terminar, compara visualmente o novo ecrã com a imagem anexada e corrige diferenças óbvias de layout.
+
+No fim responde:
+1. ficheiros alterados;
+2. o que mudou visualmente;
+3. funcionalidades existentes preservadas;
+4. resultado TypeScript;
+5. testes passados/falhados;
+6. confirmação de que Supabase e lógica de comparação não foram alterados.

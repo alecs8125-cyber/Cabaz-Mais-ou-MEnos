@@ -1,0 +1,370 @@
+Implementa APENAS a comparação de linhas genéricas ProductGroup usando
+os produtos reais associados ao grupo e o sistema de preços atual.
+
+MODO:
+FREE.
+
+Faz a alteração mínima e segura.
+
+NÃO alteres Supabase/schema/dados.
+NÃO cries preços.
+NÃO alteres lojas.
+NÃO implementes GPS ou Maps.
+NÃO instales dependências.
+
+ESTADO ATUAL CONFIRMADO:
+
+- ProductGroups funcionam na Home.
+- Um grupo pode ter produtos reais associados por product_group_items.
+- "Leite Meio-Gordo 1 L" tem atualmente 27 produtos associados.
+- O utilizador pode escolher:
+  "Qualquer marca"
+  ou uma marca específica.
+- Escolhas genéricas podem ser adicionadas ao cabaz.
+- Linha genérica contém semanticamente:
+  kind: 'group'
+  groupId
+  groupName
+  brand
+  brandLabel quando disponível
+  quantity
+- Linha genérica NÃO tem productId.
+- Cabazes v1 continuam compatíveis.
+- Cabazes com grupos usam suporte v2.
+- O comparador atualmente bloqueia linhas genéricas com a mensagem temporária.
+- Produtos exatos continuam a comparar normalmente.
+- services/prices.ts continua responsável por obter preços reais,
+  verificados e válidos.
+- TypeScript passou.
+- 90 testes passaram, 0 falharam.
+
+OBJETIVO:
+
+Permitir comparar um cabaz contendo:
+
+A) apenas produtos exatos;
+B) apenas escolhas genéricas;
+C) mistura de produtos exatos + escolhas genéricas.
+
+Nunca inventar preços.
+
+-----------------------------------
+1. RESOLVER UMA LINHA GENÉRICA
+-----------------------------------
+
+Para cada linha:
+
+kind: 'group'
+
+obter APENAS os produtos reais ativos associados ao groupId através de
+product_group_items + products.
+
+Reutiliza, se adequado, services/product-groups.ts.
+
+Não consultar os 9.112 produtos.
+
+Não transformar permanentemente a linha genérica num productId.
+
+-----------------------------------
+2. "QUALQUER MARCA"
+-----------------------------------
+
+Quando:
+
+brand = null
+
+todos os produtos ativos associados ao groupId são candidatos.
+
+Exemplo:
+
+Leite Meio-Gordo 1 L · Qualquer marca
+
+→ os 27 produtos reais associados ao grupo são candidatos.
+
+Isto NÃO significa adicionar 27 produtos ao cabaz.
+
+É UMA única linha do cabaz com vários SKUs candidatos.
+
+-----------------------------------
+3. MARCA ESPECÍFICA
+-----------------------------------
+
+Quando a linha tem brand:
+
+considerar apenas os membros do grupo compatíveis com essa opção de
+marca segundo a MESMA normalização/deduplicação implementada no
+Passo 112.
+
+IMPORTANTE:
+
+NÃO dividir marcas por vírgula.
+
+Exemplo:
+
+"MIMOSA" e "Mimosa"
+podem corresponder à mesma opção normalizada.
+
+Mas:
+
+"Continente"
+e
+"Continente,SONAE"
+
+continuam diferentes nesta versão.
+
+Não usar substring parcial que possa associar marcas erradas.
+
+-----------------------------------
+4. PREÇOS
+-----------------------------------
+
+Depois de resolver todas as linhas genéricas para IDs de produtos reais:
+
+reutilizar services/prices.ts.
+
+Não remover nem enfraquecer os filtros atuais.
+
+Continuar a aceitar APENAS preços que o serviço atual considera:
+- reais existentes em public.prices;
+- verification_status = verified;
+- já válidos;
+- não expirados segundo as regras atuais;
+- o registo válido mais recente para produto + loja.
+
+Não inventar preço.
+Não usar 0.
+Não usar preço do catálogo.
+Não usar preço estimado.
+Não usar dados do Open Food Facts como preço.
+
+Se atualmente services/prices.ts já garante isto, reutiliza-o sem
+alterar a sua semântica.
+
+-----------------------------------
+5. ESCOLHER O SKU POR LOJA
+-----------------------------------
+
+Para cada loja e para cada linha genérica:
+
+examinar apenas os SKUs candidatos que tenham preço válido nessa loja.
+
+Escolher o SKU com o MENOR preço total compatível para uma unidade da
+linha.
+
+Como os produtos dentro do grupo representam o mesmo formato
+equivalente, por exemplo 1 L, o preço do SKU pode ser comparado dentro
+desse grupo.
+
+Se houver empate de preço, usar uma regra determinística, por exemplo
+productId ascendente.
+
+Depois multiplicar pelo quantity da linha do cabaz.
+
+Exemplo:
+
+Cabaz:
+Leite Meio-Gordo 1 L · Qualquer marca × 2
+
+Loja A:
+Mimosa = 1,05 €
+Agros = 0,95 €
+Continente = 0,89 €
+
+A linha da Loja A usa:
+Continente
+0,89 € × 2 = 1,78 €
+
+Noutra loja pode ser escolhido outro SKU.
+
+-----------------------------------
+6. MOSTRAR O SKU ESCOLHIDO
+-----------------------------------
+
+Nos resultados e no detalhe da loja, uma linha genérica deve deixar
+claro qual produto real foi usado no cálculo.
+
+Exemplo:
+
+Leite Meio-Gordo 1 L
+Qualquer marca
+
+Escolhido:
+Leite Meio-Gordo — Continente
+
+0,89 € × 2 = 1,78 €
+
+Para marca específica, também mostrar o produto real escolhido.
+
+Não substituir silenciosamente o nome do pedido genérico pelo SKU.
+
+O utilizador deve conseguir perceber:
+- o que pediu;
+- qual produto real foi usado;
+- preço unitário;
+- quantidade;
+- subtotal.
+
+-----------------------------------
+7. PRODUTO EM FALTA
+-----------------------------------
+
+Se nenhum SKU elegível da linha genérica tiver preço válido numa loja:
+
+essa linha está EM FALTA nessa loja.
+
+Não usar:
+0 €
+preço estimado
+preço de outra loja
+preço expirado
+preço não verificado.
+
+A lógica atual de produtos em falta/completude deve incluir também
+linhas genéricas.
+
+Uma loja com cabaz incompleto NÃO pode parecer artificialmente mais
+barata do que uma loja com cabaz completo.
+
+Preservar a regra atual de ordenação/completude sempre que aplicável.
+
+-----------------------------------
+8. CABAZ MISTO
+-----------------------------------
+
+Exemplo:
+
+- Arroz específico, productId real
+- Leite Meio-Gordo 1 L · Qualquer marca
+- Ovos específicos, productId real
+
+O comparador deve:
+
+- tratar Arroz e Ovos pelo fluxo exato atual;
+- resolver apenas o Leite pelo grupo;
+- juntar tudo no mesmo resultado da loja;
+- calcular total apenas com preços reais;
+- indicar faltas corretamente.
+
+Não duplicar linhas.
+
+-----------------------------------
+9. GRUPOS SEM CANDIDATOS
+-----------------------------------
+
+Se um groupId:
+- não existir;
+- estiver vazio;
+- tiver apenas produtos inativos;
+- ou a marca selecionada não tiver produtos compatíveis;
+
+a linha deve ficar indisponível/em falta.
+
+Não crashar.
+Não inventar fallback para outro grupo ou marca.
+
+-----------------------------------
+10. EFICIÊNCIA
+-----------------------------------
+
+Não fazer uma consulta de preços separada para cada SKU se puder ser
+evitado.
+
+Fluxo preferido:
+
+1. resolver as linhas genéricas;
+2. juntar/deduplicar todos os productIds necessários;
+3. juntar também os productIds exatos;
+4. consultar preços em batch usando o serviço existente;
+5. distribuir os resultados pelas linhas do cabaz e pelas lojas.
+
+Respeitar o batching/paginação já existente em services/prices.ts.
+
+-----------------------------------
+11. SERVICES/PRICES.TS
+-----------------------------------
+
+Preferência:
+NÃO alterar services/prices.ts.
+
+Se for absolutamente necessário alterar alguma coisa, NÃO mudar a
+semântica dos filtros de verificação/validade e explicar exatamente a
+razão no relatório final.
+
+-----------------------------------
+12. REMOVER BLOQUEIO TEMPORÁRIO
+-----------------------------------
+
+Remover a mensagem temporária:
+
+"A comparação de escolhas por grupo será ativada no próximo passo."
+
+Agora linhas genéricas devem poder ser comparadas.
+
+-----------------------------------
+13. TESTES
+-----------------------------------
+
+Adicionar testes para pelo menos:
+
+- qualquer marca resolve todos os membros ativos;
+- marca específica resolve apenas correspondência exata normalizada;
+- marcas compostas não são divididas;
+- grupo vazio fica em falta;
+- marca sem candidatos fica em falta;
+- produto inativo não é candidato;
+- preços inexistentes não são inventados;
+- preço não verificado não é usado pelo fluxo existente;
+- SKU mais barato é escolhido por loja;
+- lojas diferentes podem escolher SKUs diferentes;
+- empate usa regra determinística;
+- quantity multiplica corretamente o subtotal;
+- SKU escolhido aparece na linha de detalhe;
+- linha genérica em falta conta para missing/completude;
+- cabaz apenas genérico;
+- cabaz misto exato + genérico;
+- cabaz apenas exato continua com o comportamento anterior;
+- productId não é gravado na linha genérica do cabaz;
+- nenhum preço fictício é criado;
+- resolução e consulta de preços são feitas em batch sempre que possível.
+
+Executar:
+- TypeScript;
+- todos os testes.
+
+-----------------------------------
+14. NÃO ALTERAR
+-----------------------------------
+
+Não alterar:
+- Supabase schema;
+- dados Supabase;
+- products;
+- product_groups;
+- product_group_items;
+- prices;
+- price_history;
+- stores;
+- saved basket schema além do que já existe;
+- GPS;
+- Maps;
+- configuração Android/iOS.
+
+-----------------------------------
+15. NO FINAL RESPONDE APENAS
+-----------------------------------
+
+- ficheiros criados;
+- ficheiros alterados;
+- como é resolvido "Qualquer marca";
+- como é resolvida marca específica;
+- como os productIds são reunidos/batched;
+- como é escolhido o SKU por loja;
+- como são tratadas linhas genéricas em falta;
+- como funciona um cabaz misto;
+- como o SKU escolhido aparece no detalhe;
+- confirmação de que nenhum preço é inventado;
+- confirmação de que filtros de preço verificado/válido foram preservados;
+- se services/prices.ts foi ou não alterado;
+- confirmação de que Supabase/schema/dados não foram alterados;
+- resultado TypeScript;
+- número total de testes passados e falhados.

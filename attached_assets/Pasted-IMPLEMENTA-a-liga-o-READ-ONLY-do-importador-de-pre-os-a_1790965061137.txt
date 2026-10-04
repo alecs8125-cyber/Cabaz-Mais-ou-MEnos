@@ -1,0 +1,215 @@
+IMPLEMENTA a ligação READ-ONLY do importador de preços ao Supabase real.
+
+MODO:
+FREE.
+
+TRABALHAR PRINCIPALMENTE EM:
+
+artifacts/api-server
+
+IMPORTANTE:
+
+NÃO escrever em public.prices.
+NÃO escrever em public.price_history.
+NÃO alterar schema.
+NÃO criar SQL.
+NÃO fazer scraping.
+NÃO criar agendamento.
+NÃO ligar ainda uma fonte real externa.
+NÃO alterar a app Expo.
+
+CONTEXTO:
+
+Já existe:
+
+src/services/price-import/
+
+com:
+
+- types
+- normalize
+- validate
+- resolve
+- dry-run
+- index
+
+e 12 testes a passar.
+
+OBJETIVO:
+
+Ligar as portas de leitura do importador ao Supabase real.
+
+--------------------------------
+1. PRODUTOS
+--------------------------------
+
+Implementa a resolução real de produto por barcode.
+
+Regra:
+
+products.active = true
+
+e:
+
+products.barcode = barcode normalizado
+
+correspondência EXATA como texto.
+
+IMPORTANTE:
+
+- preservar zeros iniciais;
+- não converter barcode para número;
+- não usar LIKE;
+- não usar nome;
+- não usar marca;
+- não usar correspondência aproximada.
+
+Resultados:
+
+0 produtos:
+pending
+
+1 produto:
+resolvido
+
+mais de 1:
+pending por ambiguidade.
+
+--------------------------------
+2. LOJAS
+--------------------------------
+
+Implementa resolução READ-ONLY de loja externa.
+
+Usar:
+
+stores.active = true
+
+e correspondência EXATA através dos identificadores externos existentes.
+
+Verifica primeiro, em leitura, o formato real de:
+
+stores.source_type
+stores.external_id
+
+especialmente lojas:
+
+source_type = openstreetmap
+
+NÃO alterar esses campos.
+
+O resolver deve aceitar pelo menos:
+
+- sourceType da loja;
+- externalStoreId.
+
+Só considerar resolvida quando existir uma única loja exata.
+
+0:
+pending
+
+mais de 1:
+pending
+
+NÃO fazer correspondência aproximada por nome, cadeia,
+município ou endereço.
+
+--------------------------------
+3. SUPABASE
+--------------------------------
+
+Reutiliza a configuração segura já existente no projeto,
+se for adequada ao api-server.
+
+Não colocar chaves diretamente no código.
+
+Não imprimir secrets.
+
+Usar apenas permissões de leitura neste passo.
+
+--------------------------------
+4. DRY RUN REAL
+--------------------------------
+
+Cria uma forma simples de executar um dry run local/interno
+contra o catálogo real.
+
+Pode ser script/command do api-server.
+
+NÃO criar endpoint público desprotegido.
+
+Para o teste:
+
+A) consulta 1 produto ativo que tenha barcode;
+B) consulta 1 loja ativa com source_type/external_id válidos;
+C) constrói um registo de TESTE local usando esses IDs;
+D) usa preço fictício claramente marcado como TESTE,
+por exemplo apenas dentro do processo de dry run;
+E) confirma que o motor consegue chegar a ready.
+
+IMPORTANTE:
+
+Esse preço fictício:
+- NÃO pode ser guardado;
+- NÃO pode entrar em public.prices;
+- NÃO pode entrar em price_history.
+
+Depois testar também:
+
+- barcode inexistente → pending;
+- loja inexistente → pending.
+
+--------------------------------
+5. GARANTIA DE ZERO ESCRITAS
+--------------------------------
+
+Faz uma revisão final do código alterado.
+
+Não pode existir chamada de:
+
+insert
+update
+upsert
+delete
+
+para:
+
+public.prices
+public.price_history
+
+Também não alterar products ou stores.
+
+--------------------------------
+6. TESTES
+--------------------------------
+
+Manter os 12 testes existentes.
+
+Adicionar testes necessários para os novos adapters/readers,
+mas mocks unitários não devem depender da rede.
+
+Executar:
+
+- typecheck;
+- build;
+- testes unitários;
+- um dry run real READ-ONLY contra Supabase.
+
+--------------------------------
+NO FINAL RESPONDE APENAS
+--------------------------------
+
+- ficheiros criados;
+- ficheiros alterados;
+- formato real encontrado em stores.external_id;
+- exemplo de source_type/external_id de UMA loja, sem dados sensíveis;
+- produto real por barcode resolvido: sim/não;
+- loja real por external_id resolvida: sim/não;
+- dry run válido chegou a ready: sim/não;
+- barcode inexistente ficou pending: sim/não;
+- loja inexistente ficou pending: sim/não;
+- confirmação de ZERO escritas em prices;
+- confirmação de ZERO escritas em price_history;
+- typecheck/build;
+- testes passados/falhados;
+- próximo passo mínimo recomendado.

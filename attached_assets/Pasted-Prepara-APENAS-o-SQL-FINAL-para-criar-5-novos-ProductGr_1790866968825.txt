@@ -1,0 +1,92 @@
+Prepara APENAS o SQL FINAL para criar 5 novos ProductGroups seguros.
+
+MODO:
+FREE.
+
+NÃO executes SQL.
+NÃO alteres Supabase.
+NÃO alteres ficheiros.
+NÃO alteres a interface.
+
+CRIAR APENAS:
+
+1. Água simples sem gás 0,5 L
+2. Água simples sem gás 1,5 L
+3. Bolacha Maria 200 g
+4. Chocolate de leite 100 g
+5. Chocolate negro 85% 100 g
+
+NÃO criar ainda:
+
+- Atum
+- Sardinha
+- Chocolate negro 74%
+- qualquer outro grupo
+
+REGRAS:
+
+ÁGUA 0,5 L:
+- apenas água simples sem gás;
+- 0,5 L ou 500 ml;
+- excluir gaseificada, com gás, tónica, aromatizada, funcional,
+  alcalina/pH especial e bebidas.
+
+ÁGUA 1,5 L:
+- apenas água simples sem gás;
+- 1,5 L ou 1500 ml;
+- mesmas exclusões.
+
+BOLACHA MARIA:
+- apenas Bolacha Maria normal;
+- 200 g;
+- excluir sem lactose, sem açúcar, diet, integral, chocolate
+  e outras variantes especiais.
+
+CHOCOLATE DE LEITE:
+- apenas tablete simples de chocolate de leite;
+- 100 g;
+- excluir recheios, frutos secos, cereais, bolachas,
+  adoçantes, sabores ou ingredientes especiais.
+
+CHOCOLATE NEGRO 85%:
+- apenas tablete simples;
+- 85% cacau confirmado;
+- 100 g;
+- excluir Bio/Organic;
+- excluir adoçantes;
+- excluir frutos secos;
+- excluir sabores;
+- excluir flor de sal;
+- excluir recheios;
+- excluir ingredientes adicionais.
+
+IMPORTANTE:
+
+Antes de gerar o SQL:
+
+1. Consulta public.products apenas por leitura.
+2. Mostra a lista final dos IDs seguros de cada grupo.
+3. Confirma a contagem depois das exclusões.
+4. Para Chocolate Negro 85%, recalcula a contagem removendo
+   qualquer produto Bio/Organic.
+5. Se algum grupo ficar com menos de 5 produtos seguros,
+   NÃO o incluir no SQL final.
+
+O SQL deve:
+
+- usar IDs explícitos dos produtos validados;
+- criar grupos apenas se ainda não existirem;
+- não duplicar product_group_items;
+- ser transacional;
+- ser idempotente;
+- validar as contagens antes de escrever;
+- abortar tudo se alguma contagem esperada não corresponder.
+
+NO FINAL RESPONDE APENAS:
+
+- grupos finais que serão criados;
+- contagem final de produtos por grupo;
+- total de produtos associados;
+- grupos removidos por ficarem abaixo de 5 produtos;
+- SQL COMPLETO;
+- confirmação de que nada foi executado nem alterado.

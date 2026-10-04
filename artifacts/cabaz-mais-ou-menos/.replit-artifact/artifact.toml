@@ -1,0 +1,24 @@
+kind = "mobile"
+previewPath = "/"
+title = "Cabaz Mais ou Menos"
+description = "Estrutura visual de uma aplicação mobile nativa em React Native, Expo e TypeScript, com quatro ecrãs em português de Portugal: Início, Escolher zona, Meu cabaz e Comparação. Apenas navegação e dados locais simples, sem backend ou serviços externos."
+version = "1.0.0"
+id = "artifacts/cabaz-mais-ou-menos"
+router = "expo-domain"
+
+[[services]]
+name = "expo"
+ensurePreviewReachable = "/status"
+paths = [ "/" ]
+localPort = 24106
+
+[services.development]
+run = "pnpm --filter @workspace/cabaz-mais-ou-menos run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/cabaz-mais-ou-menos", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/cabaz-mais-ou-menos", "run", "serve" ]
+
+[services.env]
+PORT = "24106"
+BASE_PATH = "/"

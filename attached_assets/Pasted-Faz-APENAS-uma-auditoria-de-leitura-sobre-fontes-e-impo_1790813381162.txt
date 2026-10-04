@@ -1,0 +1,162 @@
+Faz APENAS uma auditoria de leitura sobre fontes e importação de preços reais.
+
+MODO:
+FREE.
+
+NÃO alteres ficheiros.
+NÃO alteres Supabase.
+NÃO cries preços.
+NÃO implementes scraping.
+NÃO faças pedidos automáticos a sites de supermercados.
+NÃO instales dependências.
+
+CONTEXTO:
+
+A app Cabaz Mais ou Menos já tem:
+
+- 9.112 produtos reais provenientes do Open Food Facts;
+- 4.097 estabelecimentos reais provenientes do OpenStreetMap;
+- ProductGroups;
+- comparação de produtos exatos;
+- comparação de ProductGroups;
+- apenas preços verificados/válidos são aceites pelo comparador.
+
+Neste momento public.prices não tem preços reais carregados.
+
+OBJETIVO:
+
+Auditar o projeto para descobrir exatamente o que já existe relacionado
+com preços e preparar a arquitetura mínima para futuras fontes reais.
+
+1. Procura no projeto por:
+
+- importadores de preços;
+- scripts de preços;
+- APIs externas de supermercados;
+- scrapers;
+- feeds;
+- ficheiros CSV/JSON de preços;
+- funções Supabase relacionadas com importação;
+- código para promoções;
+- source_type;
+- source_reference;
+- external_id;
+- verification_status;
+- valid_from;
+- valid_until;
+- captured_at.
+
+2. Explica como services/prices.ts lê atualmente public.prices.
+
+Quero saber exatamente quais campos utiliza e quais condições um preço
+tem de cumprir para entrar numa comparação.
+
+3. Analisa a estrutura atual de public.prices conhecida pelo projeto:
+
+- id
+- product_id
+- store_id
+- price
+- unit_price
+- currency
+- promotion
+- valid_from
+- captured_at
+- source_type
+- source_reference
+- verification_status
+- created_at
+- valid_until
+- external_id
+
+Diz se esta estrutura já é suficiente para começar a receber preços
+reais de múltiplas fontes SEM alterar o schema.
+
+4. Verifica como um preço é ligado atualmente:
+
+product_id
++
+store_id
+
+e identifica os riscos para importar preços de retalhistas reais.
+
+Por exemplo:
+- produto externo precisa de corresponder ao produto interno correto;
+- estabelecimento externo precisa de corresponder à loja correta;
+- mesmo produto pode ter preços diferentes por loja/região;
+- promoções podem ter datas;
+- não devemos assumir que um preço nacional se aplica a todas as lojas.
+
+5. Verifica se existe atualmente algum mecanismo para evitar importar
+duas vezes o mesmo preço externo através de:
+
+source_type + external_id
+
+ou equivalente.
+
+6. Diz se o campo source_reference permite guardar uma referência da
+origem sem alterar o comparador.
+
+7. Não recomendes scraping agressivo nem contornar proteções.
+
+Apenas identifica tecnicamente que tipos de fontes seriam compatíveis:
+
+- API/feed autorizado de retalhista;
+- dataset público/licenciado;
+- ficheiro fornecido pelo comerciante;
+- preço submetido por utilizador e posteriormente verificado;
+- outras fontes legítimas que a estrutura atual suporte.
+
+8. Para preços submetidos por utilizadores, analisa se o schema atual
+permite inicialmente:
+
+verification_status = pending
+
+e depois:
+
+verification_status = verified
+
+sem esses preços pending entrarem no comparador.
+
+Não implementar.
+
+9. Analisa se public.price_history deve ser alimentada:
+
+A) no momento da importação;
+B) apenas quando o preço muda;
+C) através de trigger;
+D) por outro mecanismo.
+
+Não implementar; apenas recomenda a solução mínima e segura considerando
+a estrutura atual.
+
+10. Identifica quais supermercados/cadeias já aparecem nas lojas OSM
+por chain_name/name, se isso puder ser determinado apenas a partir dos
+dados/código já existentes no projeto.
+
+NÃO inventes contagens.
+Se não conseguires consultar os dados nesta auditoria, diz claramente.
+
+11. Identifica se existe algum código que já faça correspondência entre:
+
+marca/produto externo → products
+
+ou:
+
+cadeia/loja externa → stores.
+
+12. No final responde APENAS:
+
+- importadores/fontes de preço já existentes;
+- regras atuais para um preço entrar no comparador;
+- se o schema atual de prices é suficiente para uma primeira fonte real;
+- mecanismo atual contra duplicados;
+- situação de source_reference;
+- suporte atual para pending/verified;
+- recomendação para price_history;
+- mecanismos existentes de correspondência produto/loja;
+- riscos principais antes da primeira importação;
+- ficheiros relevantes encontrados;
+- sequência mínima recomendada para adicionar a PRIMEIRA fonte real.
+
+NÃO FAÇAS ALTERAÇÕES.

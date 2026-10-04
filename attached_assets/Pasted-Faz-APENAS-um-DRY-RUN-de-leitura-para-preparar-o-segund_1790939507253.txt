@@ -1,0 +1,250 @@
+Faz APENAS um DRY RUN de leitura para preparar o segundo lote
+de ProductGroups do Cabaz Mais ou Menos.
+
+MODO:
+FREE.
+
+NÃO alteres ficheiros.
+NÃO alteres Supabase.
+NÃO cries ProductGroups.
+NÃO alteres product_group_items.
+NÃO alteres a interface.
+NÃO cries SQL.
+NÃO importes preços.
+
+IMPORTANTE:
+
+O SQL final será preparado fora do Replit.
+Neste passo quero APENAS análise e IDs/produtos candidatos.
+
+ANALISAR ESTES 10 TIPOS:
+
+1. Iogurte
+2. Queijo
+3. Pão
+4. Fiambre
+5. Cereais de pequeno-almoço
+6. Sumos e néctares
+7. Refrigerantes
+8. Batatas fritas
+9. Gelados
+10. Ovos
+
+OBJETIVO:
+
+Propor ProductGroups simples e realmente comparáveis.
+
+Usar apenas:
+
+- products.active = true;
+- name;
+- brand;
+- category;
+- barcode;
+- package_quantity;
+- package_unit;
+- unit.
+
+Não usar apenas a marca para classificar.
+
+--------------------------------
+IOGURTE
+--------------------------------
+
+Separar variantes claras, por exemplo:
+
+- Natural
+- Grego
+
+Usar formatos dominantes reais.
+
+Não misturar:
+
+- iogurte líquido;
+- vegetal;
+- sobremesas lácteas;
+- sabores diferentes;
+- multipacks com unidades diferentes.
+
+--------------------------------
+QUEIJO
+--------------------------------
+
+Não criar um grupo "Queijo" genérico.
+
+Procurar variantes comparáveis como:
+
+- Queijo flamengo fatiado
+- Queijo fresco
+
+Usar apenas formatos com candidatos suficientes.
+
+Excluir:
+
+- queijo ralado;
+- queijo para barrar;
+- misturas;
+- refeições;
+- produtos que apenas contêm queijo.
+
+--------------------------------
+PÃO
+--------------------------------
+
+Procurar grupos claros como:
+
+- Pão de forma branco
+- Pão de forma integral
+
+Excluir:
+
+- pão de leite;
+- brioche;
+- tostas;
+- pastelaria;
+- pão com sementes ou variantes especiais, salvo grupo separado.
+
+--------------------------------
+FIAMBRE
+--------------------------------
+
+Separar pelo menos:
+
+- Fiambre da perna
+- Fiambre da pá
+
+se houver dados suficientes.
+
+Excluir:
+
+- presunto;
+- peito de peru;
+- refeições;
+- produtos mistos.
+
+--------------------------------
+CEREAIS
+--------------------------------
+
+Procurar grupos simples como:
+
+- Flocos de milho
+- Muesli
+- Granola
+
+Não misturar estes tipos.
+
+Excluir:
+
+- barras;
+- snacks;
+- iogurtes com cereais;
+- cereais com variantes especiais incompatíveis.
+
+--------------------------------
+SUMOS E NÉCTARES
+--------------------------------
+
+Separar por sabor e tipo.
+
+Exemplos possíveis:
+
+- Sumo de laranja 1 L
+- Néctar de pêssego 1 L
+
+Não misturar sumo com néctar.
+
+Excluir:
+
+- concentrados;
+- refrescos em pó;
+- refrigerantes.
+
+--------------------------------
+REFRIGERANTES
+--------------------------------
+
+Separar:
+
+- Cola normal
+- Cola zero
+
+e outros sabores apenas se houver candidatos suficientes.
+
+Não misturar normal e zero.
+
+--------------------------------
+BATATAS FRITAS
+--------------------------------
+
+Dar prioridade a:
+
+- Batatas fritas lisas simples
+
+Separar:
+
+- onduladas;
+- sabores;
+- light;
+- variantes especiais.
+
+Excluir chips de milho, lentilha ou outros vegetais.
+
+--------------------------------
+GELADOS
+--------------------------------
+
+Não criar grupo genérico se misturar caixas e unidades individuais.
+
+Procurar formatos claros e comparáveis.
+
+Separar sorvete de gelado de leite quando necessário.
+
+--------------------------------
+OVOS
+--------------------------------
+
+Confirmar:
+
+- 6 unidades
+- 12 unidades
+
+Não misturar automaticamente:
+
+- biológicos;
+- criação no solo;
+- tamanhos M/L/XL
+
+se estiverem claramente identificados.
+
+Se não houver produtos suficientes equivalentes, deixar para revisão.
+
+--------------------------------
+REGRA DE APROVAÇÃO
+--------------------------------
+
+Um ProductGroup só deve ser recomendado como "seguro para criar"
+quando tiver pelo menos 5 produtos comparáveis.
+
+Para cada grupo proposto mostrar:
+
+- product_type;
+- variant;
+- package_quantity;
+- package_unit;
+- nome final sugerido;
+- número de candidatos seguros;
+- IDs dos candidatos seguros;
+- 5 exemplos com nome e marca;
+- principais exclusões;
+- confiança: alta / precisa revisão.
+
+NO FINAL RESPONDE APENAS:
+
+- grupos seguros para criar já;
+- quantidade de produtos por grupo;
+- grupos que precisam de revisão;
+- grupos que não devem ser criados;
+- quantos NOVOS tipos de produto conseguiremos acrescentar;
+- confirmação de que não criaste SQL;
+- confirmação de que nada foi alterado.

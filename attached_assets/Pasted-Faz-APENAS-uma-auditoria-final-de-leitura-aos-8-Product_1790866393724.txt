@@ -1,0 +1,180 @@
+Faz APENAS uma auditoria final de leitura aos 8 ProductGroups
+propostos no último dry run.
+
+MODO:
+FREE.
+
+NÃO alteres ficheiros.
+NÃO alteres Supabase.
+NÃO cries ProductGroups.
+NÃO alteres product_group_items.
+NÃO alteres a interface.
+
+GRUPOS A VALIDAR:
+
+1. Água simples sem gás 0,5 L
+2. Água simples sem gás 1,5 L
+3. Atum ao natural 84 g
+4. Atum em azeite 120 g
+5. Sardinha em azeite 120 g
+6. Bolacha Maria 200 g
+7. Chocolate de leite 100 g
+8. Chocolate negro 100 g
+
+OBJETIVO:
+
+Confirmar que os produtos dentro de cada grupo são realmente
+comparáveis entre si.
+
+--------------------------------
+ÁGUA
+--------------------------------
+
+Confirmar que todos são:
+
+- água simples;
+- sem gás;
+- não aromatizada;
+- não funcional;
+- embalagem exatamente 0,5 L ou 1,5 L.
+
+Mostrar todos os candidatos.
+
+--------------------------------
+ATUM
+--------------------------------
+
+MUUITO IMPORTANTE:
+
+Verificar se 84 g é:
+
+- peso total da embalagem;
+OU
+- peso escorrido de uma lata que na realidade tem, por exemplo, 120 g.
+
+Usar:
+
+- name
+- unit
+- package_quantity
+- package_unit
+- category
+
+e qualquer outro campo já existente em products que ajude.
+
+Não criar equivalência entre:
+
+- 84 g de peso escorrido
+e
+- 84 g de embalagem real
+
+sem confirmação.
+
+Para Atum em azeite 120 g:
+
+identificar se existem diferenças claras como:
+
+- posta;
+- filete;
+- barriga;
+- ventresca;
+- bio;
+- temperado;
+- picante;
+- outros cortes ou variantes especiais.
+
+Assinalar MANTER ou EXCLUIR.
+
+--------------------------------
+SARDINHA
+--------------------------------
+
+Para Sardinha em azeite 120 g:
+
+assinalar produtos especiais como:
+
+- bio/organic;
+- sem pele;
+- sem espinha;
+- filetes;
+- picante;
+- outras variantes especiais.
+
+Não misturar automaticamente no grupo normal.
+
+--------------------------------
+BOLACHA MARIA
+--------------------------------
+
+Confirmar que são Bolachas Maria normais 200 g.
+
+Excluir:
+
+- diet;
+- sem açúcar;
+- sem lactose;
+- integral;
+- chocolate;
+- outras variantes especiais.
+
+--------------------------------
+CHOCOLATE DE LEITE
+--------------------------------
+
+Confirmar tabletes simples de chocolate de leite 100 g.
+
+Excluir:
+
+- recheados;
+- frutos secos;
+- sabores;
+- adoçantes;
+- proteína;
+- outros ingredientes especiais.
+
+--------------------------------
+CHOCOLATE NEGRO
+--------------------------------
+
+Verificar percentagem de cacau sempre que puder ser identificada
+no nome ou categoria.
+
+Não misturar automaticamente:
+
+- 50%
+- 70%
+- 85%
+- 90%
+
+num único ProductGroup se forem variantes claramente diferentes.
+
+Propor grupos separados por percentagem apenas se houver
+quantidade suficiente de produtos seguros.
+
+--------------------------------
+RESULTADO
+--------------------------------
+
+Para cada grupo mostrar:
+
+- candidatos atuais;
+- MANTER;
+- EXCLUIR;
+- motivo;
+- contagem final segura.
+
+NO FINAL RESPONDE APENAS:
+
+- Água 0,5 L: contagem final segura;
+- Água 1,5 L: contagem final segura;
+- conclusão sobre Atum 84 g e peso escorrido;
+- Atum em azeite 120 g: contagem final segura;
+- Sardinha em azeite 120 g: contagem final segura;
+- Bolacha Maria 200 g: contagem final segura;
+- Chocolate de leite 100 g: contagem final segura;
+- grupos seguros de Chocolate negro por percentagem, se existirem;
+- ProductGroups que recomenda criar já;
+- ProductGroups que ainda não recomenda criar;
+- confirmação de que nada foi alterado.
+
+NÃO FAÇAS ALTERAÇÕES.

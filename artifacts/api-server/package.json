@@ -1,0 +1,42 @@
+{
+  "name": "@workspace/api-server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
+    "build": "node ./build.mjs",
+    "start": "node --enable-source-maps ./dist/index.mjs",
+    "check:server-env": "node ./scripts/check-server-env.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:server-env": "node --test tests/check-server-env.test.mjs",
+    "test:price-import": "tsc --module NodeNext --moduleResolution NodeNext --target es2022 --strict --skipLibCheck --types node --rootDir src --outDir tmp/price-import-test-build src/services/price-import/*.ts && node --test tests/price-import.test.mjs tests/price-import-supabase.test.mjs tests/open-prices-adapter.test.mjs tests/continente-adapter.test.mjs tests/continente-matcher.test.mjs tests/continente-supabase.test.mjs tests/continente-sync.test.mjs tests/continente-verification.test.mjs tests/continente-sync-daily.test.mjs",
+    "dry-run:price-import": "pnpm run build && node --enable-source-maps ./dist/price-import-dry-run.mjs",
+    "dry-run:open-prices": "pnpm run build && node --enable-source-maps ./dist/price-import-open-prices-dry-run.mjs",
+    "dry-run:continente": "pnpm run build && node --enable-source-maps ./dist/price-import-continente-dry-run.mjs",
+    "sync:continente": "pnpm run build && node --enable-source-maps ./dist/continente-sync.mjs",
+    "sync:continente:daily": "pnpm run build && node --enable-source-maps ./dist/continente-sync-daily.mjs",
+    "sync:continente:scheduled": "pnpm run build && node --enable-source-maps ./dist/continente-sync-daily.mjs",
+    "verify:continente": "node ./scripts/verify-continente.mjs"
+  },
+  "dependencies": {
+    "@workspace/api-zod": "workspace:*",
+    "@workspace/db": "workspace:*",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "drizzle-orm": "catalog:",
+    "express": "^5.2.1",
+    "pino": "^9.14.0",
+    "pino-http": "^10.5.0"
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "catalog:",
+    "esbuild": "0.28.2",
+    "esbuild-plugin-pino": "^2.3.3",
+    "pino-pretty": "^13.1.3",
+    "thread-stream": "3.1.0"
+  }
+}

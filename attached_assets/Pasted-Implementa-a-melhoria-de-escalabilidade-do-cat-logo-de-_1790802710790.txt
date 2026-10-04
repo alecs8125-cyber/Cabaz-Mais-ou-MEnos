@@ -1,0 +1,103 @@
+Implementa a melhoria de escalabilidade do catálogo de produtos com base na auditoria anterior.
+
+CONTEXTO CONFIRMADO:
+- public.products tem 9.112 produtos ativos reais.
+- A paginação atual já acontece no Supabase.
+- getProducts pede páginas pequenas.
+- A pesquisa atual é feita no Supabase.
+- Existe um bug na Home: “Ver mais produtos” carrega páginas seguintes, mas a interface continua a fazer slice(0, 8), portanto os novos produtos não aparecem.
+- Não quero carregar os 9.112 produtos de uma vez.
+
+OBJETIVO:
+Corrigir a paginação visível e melhorar a pesquisa sem alterar outras funcionalidades.
+
+IMPLEMENTA:
+
+1. PAGINAÇÃO
+- Mantém paginação server-side.
+- Mantém páginas pequenas, máximo 20 produtos apresentados por página/pedido conforme a implementação atual.
+- Corrige a Home para que os produtos das páginas já carregadas sejam realmente apresentados.
+- Remove o comportamento que mantém a lista permanentemente limitada aos primeiros 8 produtos.
+- “Ver mais produtos” deve carregar a próxima página e acrescentar os novos resultados à lista.
+- Não descarregues automaticamente todas as páginas.
+- Quando não existir página seguinte, não mostrar/ativar “Ver mais produtos”.
+- Evita duplicados visuais por id quando junta páginas.
+
+2. PESQUISA
+A pesquisa deve continuar no Supabase e procurar por:
+- name
+- brand
+- barcode
+
+Não faças pesquisa descarregando o catálogo inteiro.
+
+O mesmo termo deve poder encontrar, por exemplo:
+- nome do produto;
+- marca;
+- código de barras completo.
+
+Mantém debounce de aproximadamente 300 ms.
+
+3. BARCODE
+- Inclui barcode na seleção de public.products.
+- Atualiza o tipo Product apenas onde for necessário.
+- barcode pode ser null.
+- Não é necessário mostrar o barcode visualmente na Home neste momento.
+
+4. CATEGORIAS
+- Mantém o filtro de categoria no Supabase.
+- Mantém a paginação atual das categorias.
+- Pesquisa + categoria devem poder funcionar em conjunto.
+- Não carregues todos os produtos para calcular categorias.
+
+5. HOME
+- Mantém o design atual.
+- Mantém imagens/placeholders atuais nesta tarefa.
+- Mantém botão “+ Adicionar”.
+- Mantém produtos adicionados ao cabaz.
+- Mantém estados loading/error/empty.
+- Ao mudar pesquisa ou categoria, reinicia corretamente a paginação para os novos resultados.
+
+6. SEGURANÇA / ESCOPO
+NÃO alteres:
+- dados do Supabase;
+- schema do Supabase;
+- stores;
+- prices;
+- price_history;
+- comparator;
+- lógica de preços;
+- localização;
+- cabazes guardados;
+- logo/design global;
+- configuração Android/iOS.
+
+Não inventes preços.
+Não cries produtos locais/fallback fictícios.
+Não adiciones dependências desnecessárias.
+
+7. TESTES
+Atualiza/adiciona testes para:
+- paginação de produtos;
+- página seguinte;
+- pesquisa por nome;
+- pesquisa por marca;
+- pesquisa por barcode;
+- pesquisa combinada com categoria;
+- barcode nullable;
+- ausência de duplicados ao juntar páginas;
+- Home revelar os produtos carregados por “Ver mais”.
+
+Executa:
+- TypeScript
+- todos os testes existentes
+
+No final responde APENAS:
+- ficheiros alterados;
+- como ficou a paginação;
+- como ficou a pesquisa;
+- tamanho máximo de cada pedido de produtos;
+- comportamento do “Ver mais produtos”;
+- resultado TypeScript;
+- testes passados/falhados;
+- confirmação de que Supabase/dados/preços/lojas/comparador/localização não foram alterados.

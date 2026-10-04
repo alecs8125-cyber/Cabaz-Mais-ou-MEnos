@@ -1,0 +1,42 @@
+Implementa apenas a correção mínima da consulta de lojas do Cabaz Mais ou Menos.
+
+Estado atual:
+- public.stores tem 4.097 estabelecimentos OpenStreetMap.
+- Não existem lojas Demo.
+- public.prices está vazio neste momento.
+- A auditoria confirmou que services/stores.ts -> getStores() faz atualmente select('*') sem filtros.
+- services/prices.ts -> getComparisonData() recebe a localização e atualmente filtra as lojas localmente através de filterActiveStoresForLocation().
+
+OBJETIVO:
+Não descarregar as 4.097 lojas. A consulta ao Supabase deve buscar apenas lojas ativas correspondentes à localização manual escolhida.
+
+Requisitos:
+
+1. Adapta getStores() para poder receber district, municipality e parish.
+2. Aplica no Supabase:
+   - active = true
+   - district quando fornecido
+   - municipality quando fornecido
+   - parish quando fornecido
+3. Mantém a lógica progressiva existente:
+   - distrito apenas -> lojas desse distrito
+   - distrito + município -> lojas desse município
+   - distrito + município + freguesia -> lojas dessa freguesia
+4. NÃO uses GPS/geolocalização.
+5. NÃO carregues primeiro todas as lojas para depois filtrar localmente.
+6. Seleciona apenas as colunas realmente necessárias ao fluxo atual. Não uses select('*') se não for necessário.
+7. Mantém compatibilidade com a normalização atual de nomes/acentos. Se igualdade direta no Supabase puder quebrar a lógica existente por diferenças de maiúsculas/acentos, preserva uma solução segura sem voltar a descarregar nacionalmente todas as lojas.
+8. Evita depender do limite padrão de 1000 linhas. Se a consulta filtrada ainda puder exceder o limite, usa paginação estável.
+9. Mantém filterActiveStoresForLocation() apenas se ainda for útil como validação defensiva; não deve ser o mecanismo principal de filtragem.
+10. NÃO alteres a lógica de preços, ordenação, cálculo do cabaz, poupança, detalhe da loja, produtos, cabazes guardados ou histórico.
+11. NÃO alteres o schema nem dados do Supabase.
+12. Adiciona/ajusta apenas os testes necessários para esta mudança.
+13. Executa TypeScript e os testes existentes.
+
+No fim responde apenas com:
+- ficheiros alterados;
+- resumo exato da implementação;
+- como ficou a paginação;
+- resultado do TypeScript;
+- número de testes passados/falhados;
+- confirmação de que nenhum dado/schema do Supabase foi alterado.

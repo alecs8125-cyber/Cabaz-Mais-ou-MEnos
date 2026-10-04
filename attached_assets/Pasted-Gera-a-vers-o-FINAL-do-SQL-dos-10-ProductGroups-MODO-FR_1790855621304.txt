@@ -1,0 +1,113 @@
+Gera a versão FINAL do SQL dos 10 ProductGroups.
+
+MODO:
+FREE.
+
+NÃO executes SQL.
+NÃO alteres Supabase.
+NÃO alteres ficheiros.
+NÃO alteres a interface.
+
+CONTEXTO:
+
+Após a auditoria final, vamos usar uma regra CONSERVADORA.
+
+Nos grupos normais NÃO queremos misturar produtos Bio/Organic
+nem variantes especiais de azeite.
+
+Excluir estes 5 produtos:
+
+1.
+group: Esparguete 500 g
+product_id:
+28a73fa3-06ee-4785-a28b-27ef328d8c2f
+motivo:
+marca Bio Organic
+
+2.
+group: Esparguete 500 g
+product_id:
+cd0bf55b-b61b-42ea-8ae1-5966bb87e65f
+motivo:
+marca Continente Bio / Bio
+
+3.
+group: Fusilli 500 g
+product_id:
+e7131403-768f-48de-911b-99c98fa885a3
+motivo:
+marca Continente Bio / Bio
+
+4.
+group: Azeite Virgem Extra 750 ml
+product_id:
+3b7da535-ad6e-4ca9-9364-1f7238e37a1e
+motivo:
+Seleção Colheita das Lezírias
+
+5.
+group: Azeite Virgem Extra 750 ml
+product_id:
+949684b7-5be7-41d3-a977-258601748460
+motivo:
+Reserva
+
+CONTAGENS FINAIS ESPERADAS:
+
+- Arroz Agulha 1 kg: 10
+- Arroz Carolino 1 kg: 5
+- Arroz Basmati 1 kg: 6
+- Esparguete 500 g: 8
+- Fusilli 500 g: 6
+- Azeite Virgem Extra 750 ml: 15
+- Açúcar Branco 1 kg: 6
+- Açúcar Amarelo 1 kg: 5
+- Farinha de Trigo 1 kg: 10
+- Café Moído 250 g: 4
+
+TOTAL FINAL:
+75 produtos associados.
+
+REGRAS:
+
+1. Mantém os mesmos 10 ProductGroups.
+
+2. Mantém os mesmos IDs dos grupos já preparados.
+
+3. Remove apenas os 5 product_ids indicados acima.
+
+4. Atualiza expected_count para:
+
+Esparguete = 8
+Fusilli = 6
+Azeite Virgem Extra = 15
+
+5. Mantém:
+
+Arroz Agulha = 10
+
+incluindo:
+
+f77a1790-72bf-4579-a1d5-dbf3d5553762
+Arroz extra longo agulha
+
+6. O SQL deve continuar:
+
+- transacional;
+- idempotente;
+- sem duplicar grupos;
+- sem duplicar product_group_items;
+- a validar os IDs;
+- a abortar completamente se alguma contagem não corresponder;
+- usando apenas os IDs explicitamente validados.
+
+7. NÃO executar o SQL.
+
+NO FINAL RESPONDE APENAS:
+
+- número de grupos;
+- contagem por grupo;
+- total final;
+- confirmação de que os 5 produtos foram excluídos;
+- SQL COMPLETO FINAL;
+- confirmação de que nada foi executado ou alterado.

@@ -1,0 +1,236 @@
+Faz APENAS um DRY RUN de leitura para preparar o terceiro lote
+de ProductGroups do Cabaz Mais ou Menos.
+
+MODO:
+FREE.
+
+NÃO alteres ficheiros.
+NÃO alteres Supabase.
+NÃO cries ProductGroups.
+NÃO alteres product_group_items.
+NÃO alteres a interface.
+NÃO cries SQL.
+NÃO importes preços.
+
+IMPORTANTE:
+
+O SQL final será preparado fora do Replit.
+Neste passo quero APENAS análise e IDs dos candidatos.
+
+ANALISAR ESTES 10 TIPOS:
+
+1. Tostas
+2. Feijão
+3. Grão-de-bico
+4. Polpa de tomate / Passata
+5. Ketchup
+6. Maionese
+7. Mostarda
+8. Manteiga
+9. Chá / Infusões
+10. Óleo alimentar
+
+OBJETIVO:
+
+Encontrar ProductGroups simples e realmente comparáveis.
+
+REGRA PRINCIPAL:
+
+Só recomendar um grupo como SEGURO PARA CRIAR quando existirem
+pelo menos 5 produtos realmente equivalentes.
+
+Usar apenas products.active = true.
+
+Usar:
+
+- id
+- name
+- brand
+- category
+- barcode
+- package_quantity
+- package_unit
+- unit
+
+Não classificar apenas pela marca.
+
+--------------------------------
+TOSTAS
+--------------------------------
+
+Procurar variantes simples.
+
+Exemplo:
+- Tostas normais
+
+Separar:
+- integrais;
+- sem sal;
+- especiais;
+- sabores.
+
+Não misturar bolachas ou pão.
+
+--------------------------------
+FEIJÃO
+--------------------------------
+
+Separar claramente:
+
+- Feijão Branco
+- Feijão Encarnado
+- Feijão Preto
+
+Separar também:
+
+- seco
+- cozido/enlatado
+
+se necessário.
+
+Não misturar formatos diferentes sem equivalência clara.
+
+--------------------------------
+GRÃO-DE-BICO
+--------------------------------
+
+Separar:
+
+- seco
+- cozido/enlatado
+
+Excluir:
+- snacks;
+- tortitas;
+- húmus;
+- refeições preparadas.
+
+--------------------------------
+POLPA DE TOMATE / PASSATA
+--------------------------------
+
+Separar:
+
+- Polpa de Tomate
+- Passata
+
+Excluir:
+- ketchup;
+- tomate temperado;
+- molhos preparados;
+- tomate fresco.
+
+--------------------------------
+KETCHUP
+--------------------------------
+
+Dar prioridade a:
+
+- Ketchup tradicional
+
+Separar:
+- light;
+- zero;
+- sem açúcar;
+- sabores especiais.
+
+--------------------------------
+MAIONESE
+--------------------------------
+
+Dar prioridade a:
+
+- Maionese tradicional
+
+Separar:
+- light;
+- vegan;
+- sabores;
+- variantes especiais.
+
+--------------------------------
+MOSTARDA
+--------------------------------
+
+Procurar mostarda de mesa simples.
+
+Separar:
+- Dijon;
+- mel;
+- sabores;
+- outras variantes especiais.
+
+--------------------------------
+MANTEIGA
+--------------------------------
+
+Apenas manteiga láctea.
+
+Separar:
+- com sal;
+- sem sal;
+
+se houver produtos suficientes.
+
+Excluir:
+- margarina;
+- cremes vegetais;
+- light;
+- versões especiais.
+
+--------------------------------
+CHÁ / INFUSÕES
+--------------------------------
+
+Apenas chá seco/saquetas.
+
+Separar por tipo quando necessário.
+
+Excluir:
+- ice tea;
+- bebidas prontas;
+- refrigerantes;
+- suplementos.
+
+Só criar grupo se houver equivalência clara.
+
+--------------------------------
+ÓLEO ALIMENTAR
+--------------------------------
+
+Procurar principalmente:
+
+- Óleo de girassol 1 L
+
+Excluir:
+- azeite;
+- conservas em óleo;
+- óleos aromatizados;
+- outros óleos incompatíveis.
+
+--------------------------------
+RESULTADO
+--------------------------------
+
+Para cada grupo seguro mostrar:
+
+- product_type;
+- variant;
+- package_quantity;
+- package_unit;
+- nome final sugerido;
+- número de candidatos seguros;
+- IDs dos candidatos seguros;
+- 5 exemplos com nome e marca;
+- principais exclusões;
+- confiança: alta / precisa revisão.
+
+NO FINAL RESPONDE APENAS:
+
+- grupos seguros para criar já;
+- quantidade de produtos por grupo;
+- grupos que precisam de revisão;
+- grupos que não devem ser criados;
+- quantos NOVOS tipos conseguiremos acrescentar;
+- confirmação de que não criaste SQL;
+- confirmação de que nada foi alterado.

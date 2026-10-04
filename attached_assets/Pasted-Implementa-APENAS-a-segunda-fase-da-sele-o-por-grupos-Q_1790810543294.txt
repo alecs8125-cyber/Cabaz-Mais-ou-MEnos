@@ -1,0 +1,270 @@
+Implementa APENAS a segunda fase da seleção por grupos:
+"Qualquer marca" + escolha de marca.
+
+MODO:
+FREE.
+
+Faz a alteração mínima possível.
+Não alteres Supabase/schema/dados.
+Não alteres preços, lojas, comparador, cabazes, localização ou GPS.
+Não instales dependências.
+
+ESTADO ATUAL CONFIRMADO:
+
+- services/product-groups.ts já existe.
+- lib/product-group-options.ts já existe.
+- A Home já lê product_groups ativos.
+- A Home permite:
+  tipo → variante → formato.
+- O grupo "Leite Meio-Gordo 1 L" pode ser selecionado.
+- product_group_items ainda NÃO é carregado.
+- Produtos exatos continuam disponíveis.
+- TypeScript passou.
+- 74 testes passaram, 0 falharam.
+
+OBJETIVO DESTA TAREFA:
+
+Depois de selecionar um ProductGroup, obter SOMENTE os produtos reais
+associados a esse group_id e mostrar:
+
+Qualquer marca
+
+e abaixo as marcas disponíveis nesse grupo.
+
+NÃO adicionar ainda a escolha ao cabaz.
+
+-----------------------------------
+
+1. SERVIÇO
+
+Em services/product-groups.ts, adicionar a função mínima necessária
+para obter os produtos ativos associados a um group_id.
+
+A consulta deve partir de:
+
+public.product_group_items
+
+filtrando:
+group_id = grupo selecionado.
+
+Obter apenas os produtos correspondentes em public.products.
+
+Dos produtos precisamos apenas de:
+
+- id
+- name
+- brand
+- barcode
+- unit
+
+e garantir:
+products.active = true.
+
+NÃO consultar o catálogo inteiro.
+
+NÃO descarregar os 9.112 produtos.
+
+Se a relação Supabase/PostgREST permitir uma query relacional segura,
+podes usá-la.
+
+Caso contrário, usa duas consultas:
+1. product_group_items → product_id
+2. products → apenas esses IDs.
+
+A função deve funcionar também se o grupo não tiver produtos.
+
+-----------------------------------
+
+2. MARCAS
+
+A partir SOMENTE dos produtos desse grupo, criar as opções de marca.
+
+IMPORTANTE:
+
+Os dados atuais podem conter:
+
+"AGROS"
+"Agros"
+
+"MIMOSA"
+"Mimosa"
+
+e valores compostos como:
+
+"Continente,SONAE"
+"Milbona,Lidl"
+"Nova Açores,Unileite"
+
+NÃO dividir valores compostos pela vírgula.
+NÃO inventar brandId.
+NÃO alterar os dados no Supabase.
+
+Para esta primeira versão:
+
+- remover espaços exteriores;
+- fazer deduplicação case-insensitive;
+- preservar uma versão original para apresentação;
+- tratar o valor completo "Continente,SONAE" como uma opção distinta.
+
+Exemplo:
+
+"MIMOSA" e "Mimosa"
+→ uma única opção visual.
+
+Mas:
+
+"Continente"
+e
+"Continente,SONAE"
+→ continuam opções distintas nesta fase.
+
+-----------------------------------
+
+3. INTERFACE
+
+Depois de:
+
+Leite
+→ Meio-Gordo
+→ 1 L
+
+mostrar:
+
+Escolhe a marca
+
+[ Qualquer marca ]
+
+e as marcas disponíveis nesse grupo.
+
+"Qualquer marca" deve aparecer primeiro.
+
+Não é um produto.
+Não tem product_id.
+Não tem preço.
+
+-----------------------------------
+
+4. SELEÇÃO "QUALQUER MARCA"
+
+Ao tocar em "Qualquer marca", guardar APENAS no estado local da Home
+uma seleção equivalente a:
+
+{
+  kind: 'group',
+  groupId: '<id real do grupo>',
+  brand: null
+}
+
+Não é necessário usar exatamente esta estrutura se houver uma forma
+mais adequada ao código atual, mas semanticamente deve ser isto.
+
+Mostrar confirmação visual:
+
+"Leite Meio-Gordo 1 L · Qualquer marca"
+
+NÃO adicionar ao cabaz.
+
+-----------------------------------
+
+5. SELEÇÃO DE MARCA
+
+Ao tocar numa marca, guardar localmente algo semanticamente equivalente a:
+
+{
+  kind: 'group',
+  groupId: '<id real do grupo>',
+  brand: '<valor normalizado da opção escolhida>'
+}
+
+Exemplo visual:
+
+"Leite Meio-Gordo 1 L · Mimosa"
+
+NÃO transformar isto num product_id.
+
+NÃO escolher automaticamente um dos SKUs Mimosa.
+
+NÃO adicionar ao cabaz.
+
+-----------------------------------
+
+6. ESTADOS
+
+Implementar:
+
+- loading das marcas;
+- erro ao carregar membros/marcas;
+- grupo sem produtos;
+- grupo sem marcas válidas.
+
+Uma falha aqui NÃO pode impedir a pesquisa normal de produtos exatos.
+
+-----------------------------------
+
+7. PESQUISA EXATA
+
+Preservar completamente a pesquisa atual de produtos exatos.
+
+O utilizador deve continuar a conseguir procurar diretamente um
+produto/SKU específico.
+
+Não alterar paginação, debounce ou pesquisa atual.
+
+-----------------------------------
+
+8. NÃO IMPLEMENTAR NESTE PASSO
+
+NÃO:
+- adicionar grupo ao cabaz;
+- alterar BasketContext;
+- alterar saved-baskets;
+- alterar comparador;
+- alterar services/prices.ts;
+- escolher o produto mais barato;
+- consultar preços;
+- alterar lojas;
+- adicionar GPS;
+- adicionar Maps;
+- criar tabela de marcas;
+- alterar product_groups;
+- alterar product_group_items;
+- modificar produtos no Supabase.
+
+-----------------------------------
+
+9. TESTES
+
+Adicionar testes para:
+
+- obter apenas membros do group_id pedido;
+- produtos inativos não serem considerados;
+- grupo vazio;
+- erro de leitura;
+- deduplicação case-insensitive de marcas;
+- "MIMOSA" + "Mimosa" resultar numa opção;
+- valores compostos por vírgula NÃO serem divididos;
+- "Qualquer marca" existir sempre antes das marcas;
+- seleção "Qualquer marca" guardar groupId + brand null;
+- seleção de marca guardar groupId + marca;
+- nenhuma seleção de grupo gerar product_id;
+- pesquisa de produtos exatos continuar independente.
+
+Executar:
+- TypeScript;
+- todos os testes.
+
+-----------------------------------
+
+10. NO FINAL RESPONDE APENAS:
+
+- ficheiros criados;
+- ficheiros alterados;
+- como ficou a leitura dos membros;
+- como ficou "Qualquer marca";
+- como ficaram as marcas;
+- confirmação de que nenhum grupo é adicionado ao cabaz;
+- confirmação de que não são consultados preços;
+- confirmação de que produtos exatos continuam iguais;
+- confirmação de que Supabase/schema/dados não foram alterados;
+- resultado TypeScript;
+- número total de testes passados e falhados.

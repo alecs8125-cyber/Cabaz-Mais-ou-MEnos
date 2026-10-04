@@ -1,0 +1,407 @@
+PASSO MEGA — CONTINENTE AUTOMÁTICO END-TO-END EM DRY RUN
+
+MODO:
+FREE.
+
+IMPORTANTE:
+Esta tarefa NÃO é apenas uma auditoria.
+
+Quero:
+AUDITAR + IMPLEMENTAR + TESTAR
+numa única execução.
+
+Resolve autonomamente pequenos problemas encontrados durante o trabalho.
+Não pares para pedir confirmação por detalhes técnicos normais.
+
+TRABALHAR PRINCIPALMENTE EM:
+
+artifacts/api-server
+
+NÃO alterar a app Expo.
+NÃO escrever ainda em public.prices.
+NÃO escrever em public.price_history.
+NÃO alterar Supabase.
+NÃO executar SQL.
+NÃO fazer login.
+NÃO contornar CAPTCHA/anti-bot.
+NÃO usar proxies.
+NÃO usar browser headless se HTTP simples funcionar.
+NÃO fazer scraping agressivo.
+
+Respeitar robots.txt e usar baixa concorrência.
+
+==================================================
+OBJETIVO FINAL
+==================================================
+
+No fim desta tarefa quero ter um adaptador REAL do Continente
+capaz de:
+
+Continente público
+→ descobrir produtos
+→ extrair dados
+→ identificar produto externo de forma estável
+→ tentar ligar ao nosso catálogo Supabase
+→ classificar correspondências
+→ produzir preços normalizados
+→ dry run completo
+→ ZERO escritas
+
+Tudo preparado para no passo seguinte ativarmos escrita controlada.
+
+==================================================
+1. VALIDAR IDENTIFICADOR ESTÁVEL
+==================================================
+
+Usar sitemap e páginas públicas /produto/.
+
+Testar até 200 produtos.
+
+Extrair quando existir:
+
+- nome
+- marca
+- preço
+- preço anterior
+- promoção
+- sku
+- mpn
+- URL
+- disponibilidade
+- imagem
+- formato/embalagem
+- quantidade
+- unidade
+- preço por kg/L/unidade
+- qualquer GTIN/EAN que apareça em HTML/scripts públicos
+
+Determinar automaticamente:
+
+- relação SKU/MPN;
+- se o número da URL corresponde ao identificador;
+- unicidade;
+- produtos sem ID;
+- estabilidade através de segunda leitura de pelo menos 20 produtos.
+
+Escolher UMA chave externa estável:
+
+source_type = continente
+external_product_id = identificador confirmado
+
+==================================================
+2. DESCOBRIR ESCOPO DO PREÇO
+==================================================
+
+Isto é CRÍTICO.
+
+Determinar se o preço público recolhido parece ser:
+
+- nacional/online;
+- dependente de localização;
+- dependente de loja;
+- ou impossível de determinar.
+
+Investigar apenas através de informação pública e HTTP normal.
+
+NÃO assumir que o preço de Continente Online é o preço de todas
+as lojas físicas.
+
+Se não existir identificação segura de loja física:
+
+marcar:
+
+priceScope = "online"
+ou equivalente.
+
+NÃO inventar store_id.
+
+No relatório final explicar claramente o resultado.
+
+==================================================
+3. IMPLEMENTAR ADAPTADOR CONTINENTE
+==================================================
+
+Criar uma implementação real integrada com:
+
+src/services/price-import/
+
+Estrutura sugerida, adaptada se necessário:
+
+src/services/price-import/sources/continente.ts
+
+O adaptador deve devolver registos normalizados com:
+
+- sourceType = continente
+- externalProductId
+- sourceReference
+- name
+- brand
+- barcode se existir
+- price
+- currency = EUR
+- promotion
+- regularPrice quando existir
+- packageQuantity quando possível
+- packageUnit quando possível
+- availability
+- capturedAt
+- priceScope
+
+Não adicionar validUntil inventado.
+
+Criar política separada/configurável de frescura futura,
+mas NÃO escrever preços ainda.
+
+==================================================
+4. CORRESPONDÊNCIA AUTOMÁTICA COM products
+==================================================
+
+Usar Supabase READ-ONLY.
+
+Primeira prioridade:
+
+A) barcode exato, se existir.
+
+Quando não houver barcode, tentar correspondência CONSERVADORA.
+
+Pode usar:
+
+- nome normalizado;
+- marca normalizada;
+- package_quantity;
+- package_unit;
+- barcode;
+- outros campos já existentes em public.products.
+
+NÃO fazer uma correspondência só porque dois nomes "parecem semelhantes".
+
+Criar níveis:
+
+exact
+high_confidence
+ambiguous
+unmatched
+
+Uma correspondência automática só pode ser considerada utilizável
+quando existir UM único candidato e os campos disponíveis derem
+confiança suficiente.
+
+Preferir deixar unmatched a associar ao produto errado.
+
+Para high_confidence explicar a regra usada.
+
+==================================================
+5. NÃO DEPENDER DE EAN
+==================================================
+
+Implementar conceito de mapeamento persistente futuro:
+
+source_type
+external_product_id
+→ product_id
+
+MAS ainda NÃO criar tabela Supabase.
+
+Criar interfaces/tipos/repositório para isso no código.
+
+O matcher deve funcionar assim:
+
+1. procurar futuro mapping persistente;
+2. barcode exato;
+3. regras conservadoras de correspondência;
+4. senão unmatched.
+
+==================================================
+6. ANALISAR NECESSIDADE DE NOVAS TABELAS
+==================================================
+
+Com base no que foi implementado, preparar a proposta final de schema
+para suportar no Supabase:
+
+A) external_product_mappings
+
+campos mínimos conceptuais:
+
+- id
+- source_type
+- external_product_id
+- product_id
+- match_method
+- confidence
+- verified
+- created_at
+- updated_at
+
+com UNIQUE(source_type, external_product_id)
+
+B) se necessário:
+external_store_mappings
+
+APENAS se os dados do Continente conseguirem identificar lojas reais.
+
+Se o preço for apenas online/nacional,
+NÃO inventar esta tabela só para esta fonte.
+
+NÃO executar SQL.
+
+No relatório final fornecer o SQL RECOMENDADO,
+mas não o executar.
+
+==================================================
+7. DRY RUN GRANDE
+==================================================
+
+Executar um dry run real até 200 produtos.
+
+Quero números:
+
+- páginas pedidas;
+- produtos extraídos;
+- preços extraídos;
+- IDs externos válidos;
+- formatos extraídos;
+- promoções;
+- barcodes;
+- exact matches;
+- high-confidence matches;
+- ambiguous;
+- unmatched;
+- preços com produto utilizável;
+- erros HTTP;
+- redirecionamentos;
+- páginas inválidas.
+
+Também mostrar 10 exemplos:
+
+Continente:
+nome
+marca
+preço
+external_product_id
+
+→
+
+nosso produto:
+product_id
+nome
+marca
+
+→
+
+método de correspondência
+
+Somente exemplos exact/high-confidence.
+
+==================================================
+8. VERIFICAR SE O CATÁLOGO PODE SER PERCORRIDO AUTOMATICAMENTE
+==================================================
+
+Confirmar se o sitemap permite descobrir continuamente:
+
+- produtos novos;
+- produtos removidos;
+- produtos que mudam de preço.
+
+Não descarregar o site inteiro neste teste.
+
+Mas implementar paginação/streaming/limite de forma a conseguirmos,
+no futuro, processar o catálogo completo por lotes.
+
+O scraper não deve carregar milhares de páginas todas de uma vez
+em memória.
+
+==================================================
+9. PREPARAR EXECUÇÃO AUTOMÁTICA
+==================================================
+
+Criar comando interno, por exemplo:
+
+pnpm --filter @workspace/api-server run dry-run:continente
+
+Pode aceitar parâmetros como:
+
+--limit=200
+
+Preparar arquitetura para futuramente executar:
+
+sync:continente
+
+mas NÃO habilitar escrita ainda.
+
+NÃO criar Scheduled Deployment ainda.
+
+==================================================
+10. TESTES
+==================================================
+
+Adicionar testes para:
+
+- parsing JSON-LD;
+- external_product_id;
+- preço;
+- produto sem preço;
+- formato;
+- promoção quando existir;
+- barcode quando existir;
+- exact barcode match;
+- high-confidence match;
+- ambiguous não associa;
+- unmatched não associa;
+- IDs repetidos não criam duplicados;
+- zero escritas Supabase;
+- ausência de store_id quando o preço não é store-specific.
+
+Manter todos os testes anteriores.
+
+Executar:
+
+- typecheck;
+- build;
+- TODOS os testes relevantes;
+- dry run real Continente.
+
+==================================================
+11. PROIBIDO ESCREVER
+==================================================
+
+Neste passo:
+
+ZERO insert/update/upsert/delete em:
+
+public.prices
+public.price_history
+public.products
+public.stores
+
+E nenhuma alteração de schema.
+
+==================================================
+NO FINAL RESPONDE APENAS
+==================================================
+
+1. ficheiros criados;
+2. ficheiros alterados;
+3. identificador externo escolhido;
+4. estabilidade do identificador;
+5. escopo real do preço Continente;
+6. produtos testados;
+7. preços encontrados;
+8. formatos encontrados;
+9. promoções encontradas;
+10. barcodes encontrados;
+11. exact matches;
+12. high-confidence matches;
+13. ambiguous;
+14. unmatched;
+15. exemplos das correspondências seguras;
+16. método de matching implementado;
+17. catálogo percorrível automaticamente: sim/não;
+18. comando de dry run criado;
+19. testes passados/falhados;
+20. typecheck/build;
+21. confirmação de ZERO escritas;
+22. SQL COMPLETO recomendado para mappings futuros;
+23. limitações realmente bloqueantes;
+24. conclusão objetiva:
+    quantos preços do Continente já poderiam alimentar automaticamente
+    o Cabaz se ativássemos escrita.

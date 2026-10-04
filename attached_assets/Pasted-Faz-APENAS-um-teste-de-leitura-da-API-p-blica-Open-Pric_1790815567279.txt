@@ -1,0 +1,113 @@
+Faz APENAS um teste de leitura da API pública Open Prices
+da Open Food Facts.
+
+MODO:
+FREE.
+
+NÃO alteres a app.
+NÃO alteres Supabase.
+NÃO cries tabelas.
+NÃO importes preços.
+NÃO guardes resultados.
+NÃO instales dependências.
+NÃO faças mais de 10 pedidos HTTP.
+
+CONTEXTO:
+
+O projeto Cabaz Mais ou Menos já possui:
+
+- produtos vindos do Open Food Facts;
+- products.barcode;
+- products.source_type = openfoodfacts;
+- lojas vindas do OpenStreetMap;
+- stores.source_type = openstreetmap;
+- stores.external_id com o identificador externo OSM quando disponível;
+- tabela public.prices ainda sem preços reais.
+
+OBJETIVO:
+
+Verificar se conseguimos ligar dados públicos do Open Prices
+aos produtos e lojas já existentes.
+
+1. Consulta a documentação/API pública de:
+
+https://prices.openfoodfacts.org/api/docs
+
+2. Faz apenas pedidos GET públicos.
+
+Não criar conta.
+Não usar autenticação.
+Não escrever no Open Prices.
+
+3. Procura alguns preços existentes em Portugal.
+
+Quero confirmar se a resposta fornece:
+
+- id do preço;
+- product_code / barcode;
+- nome do produto;
+- price;
+- currency;
+- date;
+- price_is_discounted;
+- price_without_discount;
+- location_id;
+- location_osm_id;
+- location_osm_type;
+- nome/endereço da localização, quando disponível;
+- proof_id;
+- created;
+- updated.
+
+4. Escolhe no máximo 5 preços portugueses reais para o teste.
+
+5. Para cada preço:
+
+A) tenta encontrar em public.products um produto com:
+
+products.barcode = product_code
+
+correspondência EXATA como texto.
+
+B) tenta encontrar em public.stores uma loja OSM correspondente
+ao location_osm_id/location_osm_type ou external_id existente.
+
+Supabase apenas leitura.
+
+6. NÃO faças correspondência aproximada por nome.
+
+Produto:
+apenas barcode exato.
+
+Loja:
+apenas identificador OSM seguro.
+
+7. Diz quantos dos preços testados tiveram:
+
+- produto encontrado;
+- loja encontrada;
+- ambos encontrados.
+
+8. Verifica a antiguidade/data de cada preço.
+
+Não assumes que um preço antigo continua atual.
+
+9. NÃO inserir nada em public.prices.
+
+10. NO FINAL RESPONDE APENAS:
+
+- API pública funcionou: sim/não;
+- autenticação necessária para leitura: sim/não;
+- número de preços portugueses testados;
+- campos disponíveis no Open Prices;
+- produtos encontrados por barcode;
+- lojas encontradas por OSM;
+- correspondências completas produto + loja;
+- datas dos preços testados;
+- supermercados encontrados;
+- se a estrutura é compatível com public.prices;
+- problemas encontrados;
+- número de pedidos HTTP usados;
+- recomendação curta para o próximo passo.
+
+NÃO FAÇAS ALTERAÇÕES.

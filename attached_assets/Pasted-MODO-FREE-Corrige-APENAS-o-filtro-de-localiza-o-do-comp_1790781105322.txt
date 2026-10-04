@@ -1,0 +1,87 @@
+MODO: FREE
+
+Corrige APENAS o filtro de localização do comparador.
+
+PROBLEMA JÁ CONFIRMADO:
+Com a localização manual:
+
+Distrito: Faro
+Concelho: Loulé
+Freguesia: Quarteira
+
+as lojas elegíveis são apenas:
+- Supermercado Demo A
+- Mercearia Demo E
+
+Mas atualmente o comparador usa todas as 5 lojas ativas.
+
+OBJETIVO:
+O comparador deve considerar apenas lojas compatíveis com a localização manual selecionada pelo utilizador.
+
+Usar os campos existentes em public.stores:
+- district
+- municipality
+- parish
+
+REGRAS:
+- se distrito estiver selecionado, filtrar por district;
+- se concelho estiver selecionado, filtrar também por municipality;
+- se freguesia estiver selecionada, filtrar também por parish;
+- usar apenas lojas active = true;
+- não comparar lojas fora da localização selecionada;
+- manter os filtros progressivos: se o utilizador só tiver escolhido distrito, não exigir concelho/freguesia; se escolheu distrito + concelho, não exigir freguesia.
+
+IMPORTANTE:
+Usar o estado/localização manual que já existe na aplicação.
+Não criar GPS.
+Não criar uma segunda seleção de localização.
+Não inventar localização.
+Não alterar os preços.
+Não alterar o cálculo dos subtotais/totais.
+Não alterar a ordenação do comparador.
+Não alterar Supabase/RLS.
+Não alterar o histórico.
+Não alterar o design geral.
+Não adicionar funcionalidades.
+
+Depois da correção, testar:
+
+Localização:
+Faro → Loulé → Quarteira
+
+Cabaz:
+- Leite ×2
+- Arroz ×1
+- Água ×3
+
+RESULTADO ESPERADO:
+
+Apenas 2 lojas devem ser comparadas:
+
+Supermercado Demo A
+Total esperado: 5,04 €
+
+Mercearia Demo E
+Total esperado: 6,12 €
+
+Não devem aparecer:
+- Mercado Demo D
+- Minimercado Demo C
+- Supermercado Demo B
+
+Confirmar também que a poupança entre as duas comparações completas é:
+
+6,12 € - 5,04 € = 1,08 €
+
+Testar TypeScript e compilação.
+
+No final responder:
+- causa corrigida;
+- localização usada;
+- número de lojas comparadas;
+- nomes das lojas comparadas;
+- totais;
+- poupança;
+- erros encontrados.
+
+PARAR depois disso.

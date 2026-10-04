@@ -1,0 +1,130 @@
+Faz APENAS uma auditoria final de leitura antes de criarmos em lote
+os 15 ProductGroups já aprovados.
+
+MODO:
+FREE.
+
+NÃO alteres ficheiros.
+NÃO alteres Supabase.
+NÃO cries ProductGroups.
+NÃO cries SQL.
+NÃO alteres a interface.
+NÃO importes preços.
+
+CONTEXTO:
+
+A mega-auditoria encontrou 15 ProductGroups seguros.
+
+7 têm package_quantity/package_unit estruturados.
+
+8 têm package_quantity/package_unit NULL porque o campo unit contém
+formatos complexos.
+
+Os 8 grupos são:
+
+1. Queijo fresco natural — 4 × 62,5 g
+2. Atum em filetes em azeite — 120 g (85 g)
+3. Atum ao natural — 110 g (77 g)
+4. Atum em posta ao natural — 110 g (77 g)
+5. Atum em posta em óleo de girassol — 110 g (72 g)
+6. Atum em posta em óleo de girassol — 120 g (85 g)
+7. Sardinhas em azeite — 120 g (85 g)
+8. Salsichas tipo Frankfurt — 200 g (350 g)
+
+OBJETIVO 1 — APP:
+
+Analisa o código atual de ProductGroups e da interface
+"Escolhe o que precisas".
+
+Quero saber exatamente o que acontece quando:
+
+package_quantity = null
+package_unit = null
+
+Verifica:
+
+- services/product-groups.ts
+- lib/product-group-options.ts
+- componentes/ecrã que mostram:
+  tipo → variante → formato → marca
+- comparator de ProductGroups
+- BasketContext / basket lines
+
+Diz se um ProductGroup com package_quantity/package_unit NULL:
+
+- aparece corretamente;
+- consegue ser selecionado;
+- mostra um formato;
+- consegue ser adicionado ao cabaz;
+- consegue ser comparado.
+
+OBJETIVO 2 — FORMATOS COMPLEXOS:
+
+Para os 8 grupos acima, consulta os produtos já aprovados e identifica,
+sem adivinhar, o significado do campo unit.
+
+Quero distinguir quando possível:
+
+- peso líquido total;
+- peso escorrido;
+- quantidade total do multipack;
+- número de unidades.
+
+Por exemplo:
+
+120 g (85 g)
+
+determinar qual parece ser o peso líquido e qual o peso escorrido,
+apenas se os dados do produto/categoria suportarem essa conclusão.
+
+Para:
+
+4 × 62,5 g
+
+confirmar se o total matemático é 250 g
+e se os 5 produtos representam realmente o mesmo multipack.
+
+Para:
+
+200 g (350 g)
+
+NÃO assumir qual é peso líquido ou escorrido.
+Verificar os dados dos 7 produtos e explicar o que é suportado.
+
+OBJETIVO 3 — REPRESENTAÇÃO:
+
+Para cada um dos 8 grupos recomenda UMA destas opções:
+
+A) package_quantity/package_unit podem continuar NULL;
+B) preencher package_quantity/package_unit com o peso líquido seguro;
+C) usar outra representação já suportada pelo schema atual;
+D) não criar o grupo ainda.
+
+Não alterar o schema.
+
+OBJETIVO 4 — 15 GRUPOS:
+
+Confirma que os outros 7 grupos estruturados continuam seguros:
+
+- Iogurte natural simples 125 g
+- Iogurte estilo grego natural 1 kg
+- Queijo fresco de cabra 130 g
+- Chá gelado limão 2 L
+- Chá gelado pêssego 2 L
+- Chá gelado manga 2 L
+- Chá gelado pêssego 1,5 L
+
+NO FINAL RESPONDE APENAS:
+
+- comportamento da app com package_quantity/package_unit NULL;
+- para cada um dos 8 grupos complexos:
+  - significado suportado do formato;
+  - representação recomendada;
+  - package_quantity recomendado;
+  - package_unit recomendado;
+  - criar já: sim/não;
+- confirmação dos 7 grupos estruturados;
+- número total final de grupos que podem ser criados de uma vez;
+- número total de novos tipos distintos;
+- confirmação de que não criaste SQL;
+- confirmação de que nada foi alterado.

@@ -1,0 +1,175 @@
+Corrige APENAS a validação de validade temporal dos preços em
+services/prices.ts.
+
+MODO:
+FREE.
+
+Faz a alteração mínima possível.
+
+NÃO alteres Supabase.
+NÃO alteres schema nem dados.
+NÃO alteres ProductGroups.
+NÃO alteres lojas.
+NÃO alteres cabazes.
+NÃO implementes importadores.
+NÃO implementes GPS ou Maps.
+
+ESTADO CONFIRMADO DIRETAMENTE NO SUPABASE:
+
+public.prices possui:
+
+- valid_from timestamptz nullable
+- valid_until timestamptz nullable
+- captured_at timestamptz not null
+- verification_status text not null
+
+verification_status permite:
+- verified
+- pending
+- rejected
+- expired
+
+O comparador já exige verification_status = verified.
+
+PROBLEMA CONFIRMADO:
+
+services/prices.ts atualmente considera valid_from e captured_at,
+mas NÃO lê/verifica valid_until.
+
+Consequentemente, um preço com:
+
+valid_until < agora
+
+pode atualmente entrar numa comparação.
+
+OBJETIVO:
+
+Um preço só pode ser usado se:
+
+1. verification_status = verified;
+2. captured_at <= agora;
+3. valid_from é null OU valid_from <= agora;
+4. valid_until é null OU valid_until >= agora;
+5. todas as validações atuais restantes continuarem válidas.
+
+-----------------------------------
+1. QUERY
+-----------------------------------
+
+Adicionar valid_until aos campos selecionados de public.prices.
+
+Aplicar, preferencialmente também no servidor/Supabase:
+
+valid_until IS NULL
+OU
+valid_until >= agora.
+
+Usa a forma correta suportada pelo cliente Supabase atual.
+
+Não remover os filtros existentes.
+
+-----------------------------------
+2. DEFESA NO CÓDIGO
+-----------------------------------
+
+Mesmo havendo filtro na query, validar também valid_until no código
+antes de aceitar o registo.
+
+Se valid_until:
+- não for null;
+- for inválido/não parseável;
+- ou for anterior ao instante atual;
+
+o preço não pode ser utilizado.
+
+Manter o comportamento atual para valid_until = null:
+o preço pode continuar elegível.
+
+-----------------------------------
+3. LIMITE TEMPORAL
+-----------------------------------
+
+Se:
+
+valid_until = exatamente agora
+
+considerar ainda válido.
+
+Só deve estar expirado quando:
+
+valid_until < agora.
+
+-----------------------------------
+4. VERIFICATION_STATUS
+-----------------------------------
+
+Manter obrigatoriamente:
+
+verification_status = verified.
+
+pending, rejected e expired nunca podem entrar na comparação.
+
+Não alterar essa semântica.
+
+-----------------------------------
+5. TESTES
+-----------------------------------
+
+Adicionar testes para:
+
+- valid_until null → pode ser usado;
+- valid_until no futuro → pode ser usado;
+- valid_until exatamente no instante atual → pode ser usado;
+- valid_until no passado → rejeitado;
+- valid_until inválido → rejeitado;
+- pending → não usado;
+- rejected → não usado;
+- expired → não usado;
+- verified + intervalo temporal válido → usado;
+- seleção do registo mais recente continua correta entre preços elegíveis.
+
+Preservar todos os testes existentes, incluindo os 103 atuais.
+
+-----------------------------------
+6. NÃO ALTERAR
+-----------------------------------
+
+Não alterar:
+
+- algoritmo de ProductGroups;
+- algoritmo de escolha do SKU;
+- lógica de completude;
+- ordenação das lojas;
+- services/product-groups.ts;
+- stores;
+- BasketContext;
+- saved-baskets;
+- Supabase/schema/dados.
+
+-----------------------------------
+7. EXECUTAR
+-----------------------------------
+
+Executar:
+
+- typecheck do artefacto Cabaz Mais ou Menos;
+- todos os testes do artefacto.
+
+Não é necessário corrigir erros existentes do mockup-sandbox.
+
+-----------------------------------
+8. NO FINAL RESPONDE APENAS
+-----------------------------------
+
+- ficheiros alterados;
+- como valid_until passou a ser filtrado;
+- comportamento para null;
+- comportamento para data futura;
+- comportamento para data exatamente agora;
+- comportamento para data passada;
+- comportamento para data inválida;
+- confirmação de que apenas verified continua elegível;
+- confirmação de que nenhuma outra lógica do comparador foi alterada;
+- confirmação de que Supabase/schema/dados não foram alterados;
+- resultado do typecheck do artefacto;
+- número total de testes passados e falhados.

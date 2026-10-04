@@ -1,0 +1,89 @@
+Faz APENAS uma auditoria de leitura aos candidatos de 3 ProductGroups.
+
+MODO:
+FREE.
+
+NÃO alteres ficheiros.
+NÃO alteres Supabase.
+NÃO cries grupos.
+NÃO executes o SQL preparado.
+NÃO alteres product_group_items.
+
+CONTEXTO:
+
+No dry run anterior foram encontrados:
+
+- Arroz Agulha 1 kg: 10 candidatos
+- Esparguete 500 g: 8 candidatos
+- Fusilli 500 g: 5 candidatos
+
+No SQL final preparado apareceram:
+
+- Arroz Agulha 1 kg: 9 candidatos
+- Esparguete 500 g: 10 candidatos
+- Fusilli 500 g: 7 candidatos
+
+OBJETIVO:
+
+Descobrir exatamente a razão destas diferenças antes de executar o SQL.
+
+1. Consulta public.products apenas por leitura.
+
+2. Para ARROZ AGULHA 1 KG mostra TODOS os candidatos considerados,
+com:
+
+- id
+- name
+- brand
+- barcode
+- category
+- package_quantity
+- package_unit
+- active
+
+Diz qual produto estava no dry run anterior mas deixou de entrar,
+se isso puder ser determinado.
+
+3. Para ESPARGUETE 500 G mostra TODOS os 10 candidatos atualmente
+selecionados com os mesmos campos.
+
+Identifica claramente quais 2 produtos adicionais não pertenciam
+à contagem anterior de 8.
+
+Para cada um diz se é realmente:
+
+- esparguete normal;
+- 500 g;
+- não integral;
+- não sem glúten;
+- não aromatizado/especial.
+
+4. Para FUSILLI 500 G mostra TODOS os 7 candidatos atualmente
+selecionados.
+
+Identifica claramente quais 2 produtos adicionais não pertenciam
+à contagem anterior de 5.
+
+Para cada um diz se é realmente:
+
+- fusilli normal;
+- 500 g;
+- não integral;
+- não tricolor;
+- não sem glúten;
+- não variante especial.
+
+5. NÃO confiar apenas em category.
+Verificar principalmente name + embalagem estruturada.
+
+6. Não alterar nenhuma regra automaticamente.
+
+NO FINAL RESPONDE APENAS:
+
+- Arroz Agulha: lista dos candidatos e razão da diferença 10 → 9;
+- Esparguete: lista dos 10 e identificação dos 2 adicionais;
+- se os 2 adicionais do Esparguete são seguros: sim/não;
+- Fusilli: lista dos 7 e identificação dos 2 adicionais;
+- se os 2 adicionais do Fusilli são seguros: sim/não;
+- contagem final recomendada para cada um dos 3 grupos;
+- confirmação de que nada foi alterado.

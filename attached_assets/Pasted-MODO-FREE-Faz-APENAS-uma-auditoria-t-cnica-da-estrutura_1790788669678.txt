@@ -1,0 +1,96 @@
+MODO: FREE
+
+Faz APENAS uma auditoria técnica da estrutura atual do Cabaz Mais ou Menos para prepararmos a utilização futura de lojas e preços reais.
+
+NÃO alteres código.
+NÃO alteres Supabase.
+NÃO cries tabelas.
+NÃO apagues dados demo.
+NÃO instales dependências.
+
+OBJETIVO FINAL DA APLICAÇÃO:
+Android e iOS, permitindo ao utilizador selecionar a sua localização e comparar o seu cabaz em supermercados, hipermercados, minimercados e outros estabelecimentos reais disponíveis nessa zona, utilizando preços reais/verificados.
+
+Analisa as tabelas atuais:
+
+public.products
+public.stores
+public.prices
+public.price_history
+
+Verifica se a estrutura atual consegue representar corretamente:
+
+LOJAS REAIS
+- cadeia/marca;
+- nome da loja;
+- tipo de estabelecimento;
+- morada;
+- distrito;
+- concelho;
+- freguesia;
+- código postal;
+- website;
+- loja ativa;
+- identificação única da loja.
+
+PRODUTOS REAIS
+- nome;
+- marca;
+- quantidade/formato;
+- unidade;
+- código de barras/EAN;
+- imagem;
+- produto ativo.
+
+PREÇOS REAIS
+- produto;
+- loja;
+- preço;
+- preço por unidade;
+- promoção;
+- moeda;
+- data de validade/início;
+- data de captura;
+- origem do preço;
+- referência da origem;
+- estado de verificação.
+
+HISTÓRICO
+- evolução do preço por produto e por loja.
+
+Também identifica:
+1. campos importantes que atualmente estejam em falta;
+2. campos que já existem e podem ser reutilizados;
+3. alterações mínimas de schema que seriam necessárias antes de importar dados reais;
+4. como distinguir claramente dados demo de dados reais;
+5. se existe risco de duplicar lojas/produtos/preços durante futuras importações;
+6. que identificadores únicos deveríamos usar para evitar duplicados.
+
+IMPORTANTE:
+Não assumes que temos acesso automático aos preços de nenhuma cadeia.
+Não inventes APIs.
+Não faças scraping.
+Não cries dados fictícios adicionais.
+
+No final apresenta apenas:
+
+ESTRUTURA ATUAL: adequada / precisa de alterações
+
+CAMPOS JÁ ADEQUADOS:
+...
+
+CAMPOS EM FALTA:
+...
+
+ALTERAÇÕES MÍNIMAS RECOMENDADAS:
+...
+
+RISCO DE DUPLICADOS:
+...
+
+PRÓXIMO PASSO TÉCNICO RECOMENDADO:
+...
+
+PARAR.
+
+Não modificar nenhum ficheiro ou dado.

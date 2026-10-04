@@ -1,0 +1,293 @@
+IMPLEMENTA um adaptador READ-ONLY para a API pública Open Prices,
+integrado no importador de preços já existente.
+
+MODO:
+FREE.
+
+TRABALHAR APENAS PRINCIPALMENTE EM:
+
+artifacts/api-server
+
+IMPORTANTE:
+
+NÃO escrever em public.prices.
+NÃO escrever em public.price_history.
+NÃO alterar Supabase.
+NÃO criar SQL.
+NÃO fazer scraping.
+NÃO usar sites de supermercados.
+NÃO criar Scheduled Deployment.
+NÃO alterar a app Expo.
+NÃO usar preços fictícios como resultado final.
+
+CONTEXTO:
+
+Já existe:
+
+src/services/price-import/
+
+com:
+
+- normalização;
+- validação;
+- resolução real de produtos por barcode;
+- resolução real de lojas por source_type + external_id;
+- estados ready / pending / rejected;
+- dry run;
+- 15 testes a passar.
+
+OBJETIVO:
+
+Adicionar Open Prices como PRIMEIRA fonte real,
+mas APENAS em DRY RUN.
+
+--------------------------------
+1. OPEN PRICES
+--------------------------------
+
+Usar apenas a API pública/documentada do Open Prices.
+
+Apenas GET.
+
+Sem autenticação, se a leitura pública continuar disponível.
+
+Não fazer scraping HTML.
+
+Criar um adaptador, por exemplo:
+
+OpenPricesAdapter
+
+ou nome equivalente coerente com a arquitetura existente.
+
+--------------------------------
+2. PORTUGAL
+--------------------------------
+
+Buscar apenas preços/localizações de Portugal.
+
+Dar prioridade aos registos MAIS RECENTES disponíveis.
+
+Não assumir que um preço antigo é atual.
+
+Para este teste, recolher no máximo:
+
+100 preços portugueses
+
+e limitar os pedidos HTTP a um número razoável.
+
+--------------------------------
+3. PRODUTO
+--------------------------------
+
+Mapear:
+
+Open Prices product_code
+→ products.barcode
+
+Correspondência EXATA como texto.
+
+0 correspondências:
+pending
+
+1:
+produto resolvido
+
+mais de 1:
+pending
+
+--------------------------------
+4. LOJA / OSM
+--------------------------------
+
+O Open Prices pode fornecer:
+
+location_osm_type
+location_osm_id
+
+Descobrir exatamente como converter isso para o formato real usado em:
+
+stores.source_type = openstreetmap
+stores.external_id
+
+NÃO assumir o formato.
+
+Primeiro verificar alguns stores.external_id reais por leitura.
+
+Depois implementar uma função explícita de conversão apenas se
+o padrão puder ser confirmado.
+
+Exemplo conceptual:
+
+Open Prices:
+WAY + 1206211986
+
+→ formato real do nosso stores.external_id
+
+Mas NÃO assumir que é:
+WAY/1206211986
+way/1206211986
+way:1206211986
+ou apenas o número.
+
+Confirmar pelos dados reais.
+
+Não fazer matching aproximado por nome/endereço.
+
+--------------------------------
+5. DATAS / FRESCURA
+--------------------------------
+
+Para cada preço calcular:
+
+- idade em dias;
+- date/capturedAt disponível;
+- se é recente ou antigo.
+
+NÃO marcar automaticamente como ready um preço muito antigo.
+
+Criar classificação de frescura APENAS para dry run:
+
+- até 3 dias;
+- 4 a 7 dias;
+- 8 a 30 dias;
+- mais de 30 dias.
+
+IMPORTANTE:
+
+Não inventar valid_until.
+
+Se a fonte não fornecer validade explícita,
+o dry run deve indicar:
+
+validUntilMissing = true
+
+e o registo não deve ser considerado pronto para futura escrita
+sem uma política de validade definida.
+
+--------------------------------
+6. PROMOÇÕES
+--------------------------------
+
+Mapear quando existirem:
+
+- price
+- price_is_discounted
+- price_without_discount
+
+Não inventar dados ausentes.
+
+--------------------------------
+7. DRY RUN
+--------------------------------
+
+Criar ou ampliar um comando interno, por exemplo:
+
+pnpm --filter @workspace/api-server run dry-run:open-prices
+
+O comando deve:
+
+1. buscar até 100 preços portugueses reais;
+2. tentar resolver produto;
+3. tentar resolver loja;
+4. validar preço/moeda/data;
+5. calcular frescura;
+6. NÃO escrever nada;
+7. devolver resumo.
+
+Resumo esperado:
+
+{
+  totalFetched,
+  productMatched,
+  storeMatched,
+  fullyMatched,
+  ready,
+  pending,
+  rejected,
+  freshness: {
+    upTo3Days,
+    days4to7,
+    days8to30,
+    over30Days
+  }
+}
+
+--------------------------------
+8. MUITO IMPORTANTE
+--------------------------------
+
+Como queremos preços realmente atuais:
+
+Um preço com mais de 7 dias NÃO deve ser apresentado como
+"preço atual" no relatório.
+
+Pode continuar a aparecer no dry run como dado histórico,
+mas deve ser claramente marcado como antigo.
+
+--------------------------------
+9. ZERO ESCRITAS
+--------------------------------
+
+Rever o código final.
+
+Confirmar que não existe:
+
+insert
+update
+upsert
+delete
+
+em:
+
+public.prices
+public.price_history
+
+Também não alterar products nem stores.
+
+--------------------------------
+10. TESTES
+--------------------------------
+
+Manter os 15 testes existentes.
+
+Adicionar testes para:
+
+- mapeamento de product_code → barcode;
+- conversão OSM confirmada;
+- localização sem correspondência → pending;
+- preço recente;
+- preço com mais de 7 dias marcado como antigo;
+- preço com mais de 30 dias;
+- validUntil ausente identificado;
+- promoção quando disponível;
+- zero escritas.
+
+Executar:
+
+- typecheck;
+- build;
+- testes;
+- dry run real Open Prices.
+
+NO FINAL RESPONDE APENAS:
+
+- ficheiros criados;
+- ficheiros alterados;
+- formato confirmado de stores.external_id;
+- regra de conversão Open Prices OSM → stores.external_id;
+- preços portugueses recolhidos;
+- produtos encontrados;
+- lojas encontradas;
+- correspondências completas produto + loja;
+- preços até 3 dias;
+- preços de 4 a 7 dias;
+- preços de 8 a 30 dias;
+- preços com mais de 30 dias;
+- quantos poderiam ser considerados atuais pela regra <= 7 dias;
+- valid_until fornecido pela fonte: sim/não;
+- promoções encontradas: sim/não;
+- zero escritas em prices: sim/não;
+- zero escritas em price_history: sim/não;
+- testes passados/falhados;
+- typecheck/build;
+- conclusão curta: Open Prices serve ou não como fonte automática complementar.

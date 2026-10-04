@@ -1,0 +1,134 @@
+Implementa APENAS a infraestrutura base para importação automática
+de preços, em modo DRY RUN.
+
+MODO:
+FREE.
+
+IMPORTANTE:
+
+NÃO escrever em public.prices.
+NÃO escrever em public.price_history.
+NÃO alterar Supabase.
+NÃO criar SQL.
+NÃO fazer scraping.
+NÃO usar sites de supermercados.
+NÃO inventar preços.
+NÃO criar Scheduled Deployment ainda.
+NÃO instalar dependências desnecessárias.
+
+CONTEXTO:
+
+O projeto tem um servidor Express em:
+
+artifacts/api-server
+
+A app Cabaz Mais ou Menos já tem:
+
+- public.products;
+- products.barcode;
+- public.stores;
+- public.prices;
+- public.price_history;
+- source_type;
+- source_reference;
+- external_id;
+- verification_status;
+- valid_from;
+- valid_until;
+- captured_at.
+
+Queremos futuramente suportar várias fontes gratuitas ou autorizadas
+com frequências diferentes.
+
+OBJETIVO:
+
+Criar a infraestrutura mínima e reutilizável para processar uma fonte
+de preços sem escrever dados ainda.
+
+1. Cria no API server uma estrutura simples semelhante a:
+
+src/services/price-import/
+
+ou equivalente coerente com a arquitetura existente.
+
+2. Define um formato normalizado para um preço externo com campos como:
+
+- sourceType
+- externalId
+- sourceReference
+- barcode
+- externalStoreId
+- price
+- currency
+- promotion
+- capturedAt
+- validFrom
+- validUntil
+
+3. Cria funções separadas para:
+
+A) normalizar barcode como texto;
+B) procurar produto ativo por barcode EXATO;
+C) preparar correspondência de loja por identificador externo;
+D) validar:
+   - preço > 0
+   - EUR
+   - datas válidas
+   - valid_until finito quando a fonte automática o exigir
+E) classificar o resultado como:
+   - ready
+   - pending
+   - rejected
+
+4. MUITO IMPORTANTE:
+
+Neste passo NÃO fazer INSERT, UPDATE ou UPSERT.
+
+O resultado deve apenas produzir um relatório de DRY RUN.
+
+5. Cria um tipo/interface de adaptador de fonte para podermos no futuro ter:
+
+- Open Prices
+- API autorizada de retalhista
+- ficheiro de comerciante
+- outra fonte legítima
+
+sem alterar o núcleo do importador.
+
+6. Não implementar uma fonte paga.
+
+7. Podes criar um adaptador de TESTE puramente local/mock apenas para
+testar o fluxo, mas os dados devem estar claramente marcados como teste
+e NUNCA entrar no Supabase.
+
+8. Adiciona testes para confirmar:
+
+- barcode exato encontra produto;
+- barcode desconhecido fica pending;
+- loja desconhecida fica pending;
+- preço zero/negativo é rejected;
+- moeda diferente de EUR é rejected;
+- data inválida é rejected;
+- preço válido + produto + loja identificados fica ready;
+- nenhuma função escreve em public.prices ou price_history.
+
+9. Mantém a app Expo inalterada.
+
+10. Corre:
+
+- typecheck relevante;
+- testes relevantes.
+
+NO FINAL RESPONDE APENAS:
+
+- ficheiros criados;
+- ficheiros alterados;
+- estrutura criada;
+- estados ready/pending/rejected implementados;
+- confirmação de que NÃO existem escritas em prices;
+- confirmação de que NÃO existem escritas em price_history;
+- número de testes passados/falhados;
+- próximo passo mínimo recomendado.
+
+NÃO IMPLEMENTES AINDA AGENDAMENTO AUTOMÁTICO.
+NÃO IMPLEMENTES AINDA A PRIMEIRA FONTE REAL.

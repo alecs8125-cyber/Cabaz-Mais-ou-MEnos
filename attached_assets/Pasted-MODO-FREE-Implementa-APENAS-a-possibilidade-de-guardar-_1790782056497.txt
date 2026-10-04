@@ -1,0 +1,92 @@
+MODO: FREE
+
+Implementa APENAS a possibilidade de guardar o cabaz atual localmente no dispositivo.
+
+OBJETIVO:
+O utilizador deve conseguir guardar o cabaz que criou e recuperá-lo depois.
+
+Nesta fase NÃO usar Supabase para guardar cabazes e NÃO criar autenticação.
+
+REQUISITOS:
+
+1. No ecrã do cabaz, adicionar uma ação:
+   “Guardar cabaz”
+
+2. Ao guardar, permitir atribuir um nome simples ao cabaz.
+   Exemplo:
+   “Compras da semana”
+
+3. Guardar localmente:
+   - nome do cabaz;
+   - produtos;
+   - IDs dos produtos;
+   - quantidades;
+   - data em que foi guardado.
+
+4. Criar uma área simples:
+   “Cabazes guardados”
+
+5. Nessa área mostrar:
+   - nome;
+   - número de produtos;
+   - data;
+   - opção para abrir/carregar o cabaz.
+
+6. Ao carregar um cabaz guardado:
+   - restaurar os produtos;
+   - restaurar as quantidades;
+   - NÃO guardar preços antigos;
+   - quando o utilizador comparar novamente, usar sempre os preços atuais do Supabase.
+
+IMPORTANTE:
+Não duplicar a lógica do comparador.
+Não alterar public.prices.
+Não alterar Supabase.
+Não alterar o filtro de localização.
+Não alterar o histórico de preços.
+Não adicionar login.
+Não adicionar conta.
+Não adicionar Premium.
+Não adicionar publicidade.
+Não adicionar GPS.
+
+Usar a solução de armazenamento local já existente no projeto, caso exista.
+
+Se não existir, escolher a solução mais simples e adequada ao Expo atual, evitando dependências desnecessárias.
+
+TESTAR:
+
+Criar um cabaz:
+- Leite ×2
+- Arroz ×1
+- Água ×3
+
+Guardar como:
+“Compras da semana”
+
+Limpar/alterar o cabaz.
+
+Carregar novamente “Compras da semana”.
+
+Confirmar:
+- Leite ×2
+- Arroz ×1
+- Água ×3
+
+Depois comparar em:
+Faro → Loulé → Quarteira
+
+Confirmar que continua a obter:
+Supermercado Demo A — 5,04 €
+Mercearia Demo E — 6,12 €
+
+Executar TypeScript, testes e compilação.
+
+No final indicar:
+- método de armazenamento usado;
+- teste de guardar/carregar;
+- resultado do comparador depois de carregar;
+- número de testes aprovados;
+- erros encontrados.
+
+PARAR.

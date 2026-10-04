@@ -1,0 +1,235 @@
+CONTINUA o trabalho do adaptador Open Prices, mas ainda APENAS em DRY RUN.
+
+MODO:
+FREE.
+
+NÃO escrever em public.prices.
+NÃO escrever em public.price_history.
+NÃO alterar schema.
+NÃO criar SQL.
+NÃO fazer scraping.
+NÃO criar Scheduled Deployment.
+NÃO alterar a app Expo.
+
+OBJETIVO:
+Resolver em conjunto os dois bloqueios encontrados no último dry run:
+
+1. validade dos preços;
+2. correspondência OSM de lojas NODE / WAY / RELATION.
+
+--------------------------------
+1. AUDITAR stores.external_id
+--------------------------------
+
+Consulta READ-ONLY as lojas:
+
+stores.active = true
+stores.source_type = 'openstreetmap'
+
+Analisa TODOS os formatos reais de external_id existentes.
+
+Quero saber quantos IDs começam, por exemplo, por:
+
+n
+w
+r
+
+ou qualquer outro padrão real encontrado.
+
+NÃO assumes formatos.
+
+Produz contagens por padrão/prefixo.
+
+Verifica especificamente se existem formatos compatíveis com:
+
+NODE
+WAY
+RELATION
+
+e apresenta exemplos mascarados.
+
+--------------------------------
+2. CONVERSÃO OPEN PRICES → OSM
+--------------------------------
+
+Com base APENAS nos formatos reais encontrados na nossa tabela,
+implementa conversões exatas para os tipos que possam ser confirmados.
+
+Exemplo:
+
+NODE + 123456
+→ n123456
+
+apenas se confirmado.
+
+Fazer o mesmo para WAY e RELATION apenas se os dados reais
+confirmarem o padrão.
+
+Se não for confirmável:
+continuar pending.
+
+NÃO usar matching por nome/endereço/coordenadas.
+
+--------------------------------
+3. POLÍTICA DE VALIDADE
+--------------------------------
+
+O Open Prices não fornece valid_until.
+
+Implementa uma política de validade configurável por fonte.
+
+Para Open Prices, APENAS PARA DRY RUN:
+
+validityWindowDays = 7
+
+Isto significa:
+
+derivedValidUntil =
+data/hora da observação + 7 dias
+
+IMPORTANTE:
+
+Isto é uma política do Cabaz Mais ou Menos,
+NÃO um valor fornecido pelo Open Prices.
+
+No código deve ficar explícita esta distinção.
+
+Se possível, representar internamente algo como:
+
+validUntilOrigin = 'source' | 'policy'
+
+ou equivalente, SEM alterar o schema Supabase.
+
+Para Open Prices:
+validUntilOrigin = 'policy'.
+
+--------------------------------
+4. REGRA DE ATUALIDADE
+--------------------------------
+
+Para Open Prices:
+
+idade <= 7 dias
++ produto resolvido
++ loja resolvida
++ preço/moeda/data válidos
+
+=> pode ficar READY no DRY RUN.
+
+idade > 7 dias
+=> não pode ficar ready para preço atual.
+
+Classificar como pending/rejected conforme a arquitetura atual,
+mas usar uma razão explícita como:
+
+stale_price
+
+ou equivalente.
+
+NÃO usar preços antigos no comparador.
+
+--------------------------------
+5. NOVO DRY RUN REAL
+--------------------------------
+
+Executar novamente até 100 preços portugueses mais recentes.
+
+Mostrar:
+
+- totalFetched
+- productMatched
+- storeMatched
+- fullyMatched
+- ready
+- pending
+- rejected
+
+e:
+
+- até 3 dias
+- 4 a 7 dias
+- 8 a 30 dias
+- mais de 30 dias
+
+Além disso:
+
+- pending por produto não encontrado
+- pending por loja não encontrada
+- pending por mapeamento OSM não verificado
+- pending por preço antigo
+- outras razões
+
+--------------------------------
+6. NÃO ESCONDER LIMITAÇÕES
+--------------------------------
+
+Se um mesmo registo tiver mais de uma razão de pending,
+podes contabilizar as razões separadamente.
+
+Não forces nenhum registo a ready.
+
+Quero números reais.
+
+--------------------------------
+7. TESTES
+--------------------------------
+
+Adicionar testes para:
+
+- NODE convertido corretamente quando confirmado;
+- WAY convertido corretamente apenas se confirmado;
+- RELATION convertido corretamente apenas se confirmado;
+- tipo OSM não suportado → pending;
+- validUntil derivado = observação + 7 dias;
+- origem dessa validade marcada como policy;
+- observação com exatamente 7 dias continua elegível;
+- observação com mais de 7 dias não fica ready;
+- zero escritas.
+
+Manter todos os testes anteriores.
+
+Executar:
+
+- typecheck;
+- build;
+- testes;
+- dry-run real Open Prices.
+
+--------------------------------
+8. ZERO ESCRITAS
+--------------------------------
+
+Confirmar novamente:
+
+ZERO insert/update/upsert/delete em:
+
+public.prices
+public.price_history
+
+e nenhuma alteração em products/stores.
+
+--------------------------------
+NO FINAL RESPONDE APENAS
+--------------------------------
+
+- formatos reais de stores.external_id encontrados;
+- contagem NODE;
+- contagem WAY;
+- contagem RELATION;
+- regras OSM confirmadas;
+- política Open Prices de validade implementada;
+- como é calculado derivedValidUntil;
+- preços recolhidos;
+- produtos encontrados;
+- lojas encontradas;
+- correspondências completas;
+- ready;
+- pending;
+- rejected;
+- frescura por intervalo;
+- razões principais de pending;
+- zero escritas em prices: sim/não;
+- zero escritas em price_history: sim/não;
+- testes passados/falhados;
+- typecheck/build;
+- conclusão curta sobre quantos preços Open Prices seriam realmente utilizáveis HOJE.

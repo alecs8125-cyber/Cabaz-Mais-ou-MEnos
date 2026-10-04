@@ -1,0 +1,355 @@
+A DECISÃO SOBRE ACIONADOR E CADÊNCIA JÁ ESTÁ TOMADA.
+
+NÃO pares novamente para perguntar isto.
+
+DECISÃO FINAL:
+
+- acionador futuro: Replit Scheduled Deployment;
+- frequência: DAILY;
+- hora: 05:00;
+- timezone: Europe/Lisbon;
+- execução: comando Node finito;
+- NÃO usar setInterval;
+- NÃO usar loop infinito;
+- NÃO criar/publicar o Scheduled Deployment neste passo;
+- NÃO criar custo recorrente neste passo.
+
+IMPLEMENTA AGORA o PASSO MEGA que te pedi.
+
+O scheduler NÃO é necessário para implementar a lógica de retoma.
+Primeiro deixa o comando preparado; o agendamento será ligado depois.
+
+MODO:
+FREE.
+
+==================================================
+OBJETIVO DESTA EXECUÇÃO
+==================================================
+
+Transformar o importador atual, que usa --offset manual e lotes
+pequenos, num importador automático resumível.
+
+Quero nesta mesma tarefa:
+
+1. refresh dos produtos Continente já conhecidos;
+2. discovery de produtos novos;
+3. checkpoint persistente;
+4. retoma automática;
+5. processamento de vários sublotes de 20 dentro da mesma execução;
+6. limite global configurável;
+7. comando diário finito;
+8. teste real controlado;
+9. validação final.
+
+NÃO faças apenas planeamento.
+IMPLEMENTA.
+
+==================================================
+1. MANTER SUBLOTES SEGUROS DE 20
+==================================================
+
+O código atual limita escrita a 20 páginas por segmento.
+
+NÃO precisas remover essa proteção.
+
+Em vez disso, implementa uma execução maior como:
+
+limite global = 100
+
+dividido internamente em:
+
+20 + 20 + 20 + 20 + 20
+
+Cada sublote:
+
+- processa;
+- persiste de forma idempotente;
+- atualiza checkpoint apenas depois de sucesso;
+- passa ao próximo.
+
+Se um sublote falhar:
+
+- não perder o último checkpoint seguro;
+- parar de forma limpa;
+- próxima execução retoma daí.
+
+==================================================
+2. SOURCE_SYNC_STATE
+==================================================
+
+Usar public.source_sync_state com:
+
+source_type = 'continente'
+
+Guardar estado suficiente para retoma automática.
+
+Preferir metadata JSON para detalhes como:
+
+{
+  "discovery": {
+    "sitemapIndex": ...,
+    "offset": ...,
+    "cycle": ...
+  },
+  "refresh": {
+    "cursor": ...
+  }
+}
+
+e usar os campos existentes da tabela para:
+
+- last_attempt_at;
+- last_success_at;
+- last_error;
+- cursor_value quando útil.
+
+Não criar nova tabela se não for necessária.
+
+==================================================
+3. REFRESH DOS PREÇOS JÁ CONHECIDOS
+==================================================
+
+Antes de discovery:
+
+buscar produtos/preços Continente já persistidos.
+
+Prioridade:
+
+1. preço expirado;
+2. perto de expirar;
+3. captured_at mais antigo.
+
+Usar source_reference/URL persistida.
+
+Atualizar novamente:
+
+- preço;
+- captured_at;
+- valid_from;
+- valid_until +36h.
+
+Mesmo preço:
+renovar validade,
+SEM criar histórico duplicado.
+
+Preço mudou:
+criar history através da RPC existente.
+
+==================================================
+4. DISCOVERY RESUMÍVEL
+==================================================
+
+Descobrir automaticamente todos os sitemaps públicos de produto.
+
+Ordenação determinística.
+
+Usar:
+
+sitemapIndex + offset
+
+para saber exatamente de onde continuar.
+
+Quando acabar um sitemap:
+passar ao seguinte.
+
+Quando acabar todos:
+marcar ciclo concluído.
+
+Na próxima ronda:
+começar novo ciclo no início para descobrir novos produtos.
+
+Não depender de --offset manual para funcionamento normal.
+
+==================================================
+5. COMANDO DIÁRIO
+==================================================
+
+Criar:
+
+pnpm --filter @workspace/api-server run sync:continente:daily
+
+Por defeito:
+DRY RUN.
+
+Para escrita:
+--commit
+
+Suportar:
+
+--limit=100
+--resume
+
+O comando futuro agendado será equivalente a:
+
+pnpm --filter @workspace/api-server run sync:continente:daily -- --limit=100 --resume --commit
+
+NÃO executar esse comando automaticamente todos os dias ainda.
+
+==================================================
+6. COMANDO SCHEDULED
+==================================================
+
+Pode criar alias:
+
+sync:continente:scheduled
+
+que execute a mesma lógica com configurações seguras para produção.
+
+Mas:
+
+NÃO criar deployment.
+NÃO publicar.
+NÃO configurar cobrança.
+
+Apenas deixar o comando pronto.
+
+==================================================
+7. RESILIÊNCIA
+==================================================
+
+HTTP concorrência máxima:
+2 ou 3.
+
+Retry curto apenas para:
+
+429
+5xx
+timeout
+
+Máximo poucas tentativas.
+
+Sem bypass de anti-bot.
+
+Redirect inválido:
+registar e continuar quando seguro.
+
+Checkpoint só avança depois de o item/sublote estar concluído
+de forma consistente.
+
+==================================================
+8. TESTE REAL
+==================================================
+
+Depois da implementação:
+
+A) executar dry run:
+
+refresh dos 18 já existentes
++
+discovery até 100 URLs novas
++
+--resume
+
+B) se saudável:
+
+executar UMA execução real controlada:
+
+refresh
++
+até 100 URLs novas
++
+--resume
++
+--commit
+
+Pode usar internamente sublotes de 20.
+
+NÃO exceder 100 URLs novas.
+
+C) depois executar verify:continente.
+
+D) executar novamente dry run com --resume
+e comprovar que continua a partir do checkpoint novo.
+
+==================================================
+9. VALIDAR
+==================================================
+
+Confirmar:
+
+- 0 duplicados;
+- products reutilizados corretamente;
+- mappings reutilizados;
+- preços atuais;
+- history apenas quando necessário;
+- validade 36h;
+- Continente Online;
+- checkpoint correto;
+- retoma correta.
+
+Testar 3 produtos na lógica real da app em modo READ-ONLY.
+
+==================================================
+10. TESTES
+==================================================
+
+Adicionar apenas testes necessários para a nova funcionalidade:
+
+- checkpoint;
+- sublotes;
+- resume;
+- refresh priority;
+- refresh separado de discovery;
+- erro a meio preserva checkpoint;
+- fim dos sitemaps;
+- início de novo ciclo;
+- comando diário termina;
+- dry run não escreve.
+
+Não gastar tempo a reescrever testes antigos.
+
+No fim executar testes/typechecks relevantes.
+
+==================================================
+11. CUSTOS
+==================================================
+
+O utilizador tem pouco saldo Replit.
+
+Não usar POWER/MAX.
+Não fazer exploração desnecessária.
+Não repetir trabalho já confirmado.
+Não criar serviço pago.
+Não criar Scheduled Deployment.
+
+==================================================
+NO FINAL RESPONDE APENAS
+==================================================
+
+- implementação concluída: sim/não;
+- ficheiros criados;
+- ficheiros alterados;
+- refresh automático implementado: sim/não;
+- discovery automático implementado: sim/não;
+- checkpoint persistente: sim/não;
+- resume sem offset manual: sim/não;
+- sublotes internos de 20: sim/não;
+- limite global testado;
+- sitemaps encontrados;
+- conhecidos refrescados;
+- novas URLs processadas;
+- products criados;
+- products reutilizados;
+- mappings criados/reutilizados;
+- prices criados;
+- prices atualizados;
+- prices inalterados;
+- mudanças de preço;
+- history criado;
+- redirects;
+- erros;
+- duplicados;
+- checkpoint final;
+- segundo dry run retomou corretamente: sim/não;
+- 3 produtos app validados: sim/não;
+- testes passados/falhados;
+- typecheck/build;
+- comando sync:continente:daily;
+- comando sync:continente:scheduled;
+- Scheduled Deployment criado: NÃO;
+- custo recorrente criado: NÃO;
+- conclusão:
+  pronto para ligar atualização diária: sim/não.
+
+NÃO VOLTES A PERGUNTAR CADÊNCIA OU ACIONADOR.
+IMPLEMENTA AGORA.

@@ -1,0 +1,258 @@
+PASSO MEGA — PREPARAR AUTOMAÇÃO DIÁRIA DO CONTINENTE VIA GITHUB ACTIONS
+
+MODO:
+FREE.
+
+OBJETIVO:
+Deixar o Continente preparado para sincronizar automaticamente todos os dias
+às 05:00 Europe/Lisbon através de GitHub Actions,
+sem Replit Scheduled Deployment e sem criar custo recorrente no Replit.
+
+NÃO criar deployment Replit.
+NÃO executar novo commit de preços agora.
+NÃO executar SQL.
+NÃO alterar schema.
+NÃO imprimir secrets.
+NÃO implementar outro supermercado.
+
+==================================================
+1. INSPECIONAR O COMANDO REAL EXISTENTE
+==================================================
+
+Verifica package.json e o código atual.
+
+Identifica o comando REAL já implementado para execução automática diária,
+por exemplo:
+
+sync:continente:daily
+ou
+sync:continente:scheduled
+
+Usa o comando que realmente existe.
+
+NÃO inventar outro se já existir um correto.
+
+O comando deve:
+
+- terminar sozinho;
+- usar resume/checkpoint;
+- fazer refresh dos conhecidos;
+- fazer discovery;
+- respeitar limite;
+- suportar commit;
+- preservar checkpoint em erro.
+
+==================================================
+2. CRIAR GITHUB ACTION
+==================================================
+
+Criar:
+
+.github/workflows/continente-daily-sync.yml
+
+Configurar:
+
+- execução diária às 05:00;
+- timezone Europe/Lisbon, se suportado pela sintaxe atual;
+- workflow_dispatch para execução manual;
+- apenas uma execução simultânea;
+- cancelar/impedir overlap de syncs;
+- timeout de segurança;
+- permissions mínimos/read-only para o repositório.
+
+Usar runner standard Linux económico.
+
+==================================================
+3. SEGURANÇA
+==================================================
+
+A workflow NÃO pode conter chaves reais.
+
+Usar GitHub Secrets.
+
+Precisará apenas das variáveis server-side realmente usadas pelo api-server.
+
+Inspeciona o código atual para confirmar nomes EXATOS.
+
+Provavelmente algo equivalente a:
+
+SUPABASE_SERVICE_ROLE_KEY
+
+e URL Supabase correspondente.
+
+NÃO usar service role em variável pública.
+
+NÃO imprimir secrets nos logs.
+
+Adicionar preflight que confirme apenas booleans de presença.
+
+==================================================
+4. INSTALAÇÃO
+==================================================
+
+Na workflow:
+
+- checkout;
+- configurar Node na versão compatível com o projeto;
+- configurar pnpm na versão compatível;
+- instalar dependências com lockfile;
+- executar apenas o necessário para o sync.
+
+Não executar builds da app Expo diariamente.
+
+Não executar testes completos diariamente.
+
+Priorizar execução curta e económica.
+
+==================================================
+5. COMANDO AGENDADO
+==================================================
+
+Executar o comando existente equivalente a:
+
+sync Continente
++
+resume
++
+commit
++
+limite global 100
+
+Não ultrapassar 100 páginas novas por execução diária.
+
+O refresh dos conhecidos continua separado do discovery.
+
+==================================================
+6. CONCURRENCY
+==================================================
+
+Criar concurrency group específico:
+
+continente-daily-sync
+
+Nunca permitir duas sincronizações simultâneas.
+
+Uma execução nova não deve corromper checkpoint de uma anterior.
+
+==================================================
+7. TIMEOUT / FALHAS
+==================================================
+
+Definir timeout razoável para evitar consumir minutos indefinidamente.
+
+Se falhar:
+
+- processo termina com exit code != 0;
+- checkpoint seguro mantém-se;
+- GitHub Action fica marcada como failed;
+- próxima execução consegue retomar.
+
+Não criar retries infinitos no workflow.
+
+==================================================
+8. MANUAL RUN
+==================================================
+
+Adicionar workflow_dispatch.
+
+A execução manual deve permitir testar o mesmo workflow.
+
+Se for simples e seguro, adicionar input:
+
+dry_run = true/false
+
+com default TRUE para execução manual.
+
+IMPORTANTE:
+
+schedule diário:
+commit REAL.
+
+manual por defeito:
+dry run.
+
+Se isso complicar demasiado a workflow,
+manter apenas workflow_dispatch normal e documentar claramente.
+
+==================================================
+9. NÃO EXECUTAR AGORA
+==================================================
+
+Neste passo:
+
+NÃO executar a Action real.
+NÃO fazer push automaticamente.
+NÃO adicionar GitHub secrets.
+NÃO executar outro sync --commit.
+
+Apenas preparar corretamente os ficheiros.
+
+==================================================
+10. DOCUMENTAÇÃO CURTA
+==================================================
+
+Criar documentação muito curta dizendo exatamente quais GitHub Secrets
+preciso criar manualmente.
+
+Não incluir valores.
+
+Explicar também:
+
+- horário 05:00 Europe/Lisbon;
+- limite diário;
+- comando executado;
+- como lançar manualmente;
+- como desativar rapidamente a schedule.
+
+==================================================
+11. VALIDAR LOCALMENTE
+==================================================
+
+Validar:
+
+- YAML sintaticamente correto;
+- scripts referenciados existem;
+- package manager correto;
+- nomes das env corretos;
+- nenhum secret hardcoded;
+- nenhuma chave antiga no novo ficheiro;
+- nenhum deployment Replit criado.
+
+Não executar novo commit de preços.
+
+==================================================
+12. CUSTO
+==================================================
+
+Objetivo é evitar consumo do saldo Replit.
+
+NÃO criar:
+
+- Scheduled Deployment;
+- Always On;
+- máquina adicional;
+- serviço pago;
+- cron Replit.
+
+==================================================
+NO FINAL RESPONDE APENAS
+==================================================
+
+- ficheiros criados;
+- ficheiros alterados;
+- workflow GitHub criado: sim/não;
+- horário configurado;
+- timezone;
+- comando exato que a Action executará;
+- limite diário;
+- concurrency configurada: sim/não;
+- timeout configurado;
+- GitHub Secrets necessários, apenas NOMES;
+- execução manual disponível: sim/não;
+- dry run manual por defeito: sim/não;
+- secrets hardcoded encontrados: 0 ou número;
+- Scheduled Deployment Replit criado: NÃO;
+- custo Replit recorrente criado: NÃO;
+- novo sync real executado: NÃO;
+- validação local passou: sim/não;
+- única ação manual que falta para ativar a automação.

@@ -1,0 +1,252 @@
+Faz APENAS um DRY RUN para preparar ProductGroups de 10 novos tipos.
+
+MODO:
+FREE.
+
+NÃO alteres ficheiros.
+NÃO alteres Supabase.
+NÃO cries ProductGroups.
+NÃO alteres product_group_items.
+NÃO alteres a interface.
+NÃO importes preços.
+
+CONTEXTO:
+
+Já existem tipos na app como:
+
+- Leite
+- Arroz
+- Massa
+- Azeite
+- Açúcar
+- Farinha
+- Café
+
+Queremos aumentar a lista rapidamente, mas com grupos seguros.
+
+NESTE PASSO analisar apenas:
+
+1. Água simples sem gás
+2. Atum
+3. Sardinha
+4. Bolachas/Biscoitos
+5. Chocolate
+6. Feijão
+7. Grão-de-bico
+8. Polpa de tomate / Passata
+9. Ketchup
+10. Maionese
+
+OBJETIVO:
+
+Para cada tipo, propor ProductGroups claros usando:
+
+- variante;
+- package_quantity;
+- package_unit;
+- produtos ativos;
+- nome + categoria + embalagem estruturada.
+
+NÃO criar grupos ainda.
+
+--------------------------------
+1. ÁGUA
+--------------------------------
+
+Apenas água simples SEM GÁS.
+
+Procurar principalmente:
+
+- Água 0,5 L
+- Água 1,5 L
+
+Aceitar mineral natural e nascente.
+
+Excluir:
+- gaseificada;
+- com gás;
+- sparkling;
+- aromatizada;
+- tónica;
+- funcional;
+- vitaminas;
+- refrigerantes.
+
+--------------------------------
+2. ATUM
+--------------------------------
+
+Separar variantes claramente diferentes.
+
+Procurar grupos como:
+
+- Atum ao Natural
+- Atum em Azeite
+- Atum em Óleo
+
+Usar os formatos dominantes reais do catálogo,
+por exemplo 120 g apenas se confirmado.
+
+Excluir:
+- patês;
+- refeições;
+- saladas;
+- massas com atum;
+- produtos que apenas mencionem atum.
+
+--------------------------------
+3. SARDINHA
+--------------------------------
+
+Procurar variantes claras como:
+
+- Sardinha em Azeite
+- Sardinha em Tomate
+- Sardinha Picante
+
+Usar apenas formatos dominantes confirmados.
+
+Excluir patês e refeições.
+
+--------------------------------
+4. BOLACHAS
+--------------------------------
+
+Procurar apenas variantes muito claras, por exemplo:
+
+- Bolacha Maria
+- Digestivas
+
+Não criar grupo genérico se misturar produtos muito diferentes.
+
+Excluir:
+- wafers;
+- bolos;
+- pastelaria;
+- barras;
+- tostas.
+
+--------------------------------
+5. CHOCOLATE
+--------------------------------
+
+Procurar grupos claros como:
+
+- Chocolate de Leite
+- Chocolate Negro
+
+Dar prioridade a tabletes simples.
+
+Excluir:
+- bolachas;
+- cereais;
+- sobremesas;
+- bebidas;
+- chocolates recheados;
+- bombons;
+- produtos com chocolate apenas como ingrediente.
+
+--------------------------------
+6. FEIJÃO
+--------------------------------
+
+Separar claramente:
+
+- Feijão Branco
+- Feijão Encarnado
+- Feijão Preto
+
+Separar seco de cozido/enlatado se necessário.
+
+Nunca comparar os dois como equivalentes.
+
+--------------------------------
+7. GRÃO-DE-BICO
+--------------------------------
+
+Separar:
+
+- seco;
+- cozido/enlatado
+
+se os dados permitirem.
+
+Excluir snacks, tortitas e produtos preparados.
+
+--------------------------------
+8. POLPA DE TOMATE / PASSATA
+--------------------------------
+
+Separar se necessário:
+
+- Polpa de Tomate
+- Passata
+
+Não misturar ketchup, molhos preparados ou tomate fresco.
+
+--------------------------------
+9. KETCHUP
+--------------------------------
+
+Dar prioridade a:
+
+- Ketchup Tradicional
+
+Separar versões:
+- light;
+- zero;
+- reduzido em açúcar
+
+se existirem claramente.
+
+--------------------------------
+10. MAIONESE
+--------------------------------
+
+Dar prioridade a:
+
+- Maionese Tradicional
+
+Separar:
+- light
+
+se for claramente identificável.
+
+Excluir saladas e refeições que apenas mencionem maionese.
+
+--------------------------------
+REGRAS GERAIS
+--------------------------------
+
+Para cada ProductGroup proposto mostrar:
+
+- product_type;
+- variant;
+- package_quantity;
+- package_unit;
+- nome final do grupo;
+- número de candidatos seguros;
+- 5 exemplos;
+- principais exclusões;
+- confiança: alta / precisa revisão.
+
+Não criar grupos com apenas 1 produto,
+salvo se houver razão muito forte.
+
+Não usar apenas brand.
+
+Não inventar formatos.
+
+Usar os formatos que realmente aparecem nos dados.
+
+NO FINAL RESPONDE APENAS:
+
+- ProductGroups propostos por tipo;
+- quantidade de candidatos por grupo;
+- grupos de confiança alta;
+- grupos que precisam de revisão;
+- grupos que não recomenda criar;
+- quantos novos tipos ficariam disponíveis na app;
+- confirmação de que nada foi alterado.
+
+NÃO FAÇAS ALTERAÇÕES.

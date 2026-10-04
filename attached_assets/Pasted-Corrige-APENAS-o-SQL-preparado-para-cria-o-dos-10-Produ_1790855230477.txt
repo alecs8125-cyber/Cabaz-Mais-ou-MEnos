@@ -1,0 +1,124 @@
+Corrige APENAS o SQL preparado para criação dos 10 ProductGroups.
+
+MODO:
+FREE.
+
+NÃO executes SQL.
+NÃO alteres Supabase.
+NÃO alteres ficheiros.
+NÃO alteres a interface.
+NÃO cries grupos diretamente.
+
+CONTEXTO:
+
+O SQL anterior estava praticamente correto.
+
+Após auditoria adicional ficaram confirmadas estas contagens finais:
+
+- Arroz Agulha 1 kg: 10
+- Arroz Carolino 1 kg: 5
+- Arroz Basmati 1 kg: 6
+- Esparguete 500 g: 10
+- Fusilli 500 g: 7
+- Azeite Virgem Extra 750 ml: 17
+- Açúcar Branco 1 kg: 6
+- Açúcar Amarelo 1 kg: 5
+- Farinha de Trigo 1 kg: 10
+- Café Moído 250 g: 4
+
+TOTAL ESPERADO:
+80 produtos associados.
+
+CORREÇÃO NECESSÁRIA:
+
+O grupo Arroz Agulha 1 kg deve incluir também:
+
+id:
+f77a1790-72bf-4579-a1d5-dbf3d5553762
+
+name:
+Arroz extra longo agulha
+
+brand:
+Vale Velho
+
+barcode:
+8480017736833
+
+package_quantity:
+1
+
+package_unit:
+kg
+
+Este produto foi validado como compatível.
+
+O SQL anterior deixou-o de fora apenas porque exigia a sequência
+contígua:
+
+"arroz agulha"
+
+O nome é:
+
+"Arroz extra longo agulha"
+
+--------------------------------
+REGRAS
+--------------------------------
+
+1. Mantém os mesmos 10 ProductGroups.
+
+2. Mantém os mesmos IDs de grupo já preparados.
+
+3. Mantém todos os outros product_ids já validados.
+
+4. Adiciona o product_id acima a rice-agulha.
+
+5. Ajusta expected_count de rice-agulha de 9 para 10.
+
+6. Ajusta a validação de nome de Arroz Agulha para aceitar também:
+
+"arroz extra longo agulha"
+
+SEM tornar a regra demasiado ampla.
+
+7. Continuar a excluir:
+
+- integral;
+- preparado;
+- pronto;
+- cozido;
+- risotto;
+- misturas;
+- arroz doce;
+- produtos com categoria contraditória como basmati;
+- produtos sem embalagem estruturada válida.
+
+8. Manter:
+
+Esparguete = 10
+Fusilli = 7
+
+Os candidatos adicionais desses dois grupos já foram auditados
+e considerados seguros.
+
+9. O script deve continuar:
+
+- transacional;
+- idempotente;
+- sem duplicar grupos;
+- sem duplicar product_group_items;
+- abortar tudo se as contagens validadas não forem exatamente as esperadas.
+
+10. NÃO executar o SQL.
+
+NO FINAL RESPONDE APENAS:
+
+- número de grupos;
+- contagem por grupo;
+- total de produtos associados;
+- confirmação de Arroz Agulha = 10;
+- confirmação de Esparguete = 10;
+- confirmação de Fusilli = 7;
+- SQL COMPLETO corrigido;
+- confirmação de que nada foi executado ou alterado.

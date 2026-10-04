@@ -1,0 +1,12 @@
+- [Expo dependency checks](expo-dependency-checks.md) — distinguish newly recommended SDK patches from incompatibility; respect the workspace's release-age safeguards.
+- [pnpm catalog installs](pnpm-catalog-installs.md) — artifact-scoped installs can still rewrite shared catalog constraints and strip configuration comments.
+- [Supabase request retries](supabase-request-retries.md) — disabling React Query retries does not disable the SDK’s transport retries; verify failure timing at both layers.
+- [Expo bundle checks](expo-bundle-checks.md) — distinguish Metro port conflicts and optional DevTools library warnings from actual app bundle failures.
+- [Expo Supabase service checks](expo-supabase-service-checks.md) — Node cannot directly load the mobile Supabase client’s native polyfill; distinguish test-harness import errors from app failures.
+- [PostgREST exact filters](supabase-postgrest-filter-quoting.md) — do not indiscriminately quote plain values in `eq` filters; validate manual REST encoding against PostgREST.
+- [Price/store source separation](price-import-store-source-type.md) — keep a price feed’s type distinct from the external ID namespace used to resolve its store.
+- [Open Prices import scope](open-prices-import-scope.md) — keep this adapter public-read-only and dry-run-only; do not add writes, other sources, scheduling, SQL, or Expo changes.
+- [Continente price scope](continente-price-scope.md) — treat public Continente product-page prices as online-scoped; never invent a physical-store mapping.
+- [Server secrets propagation](server-secrets-propagation.md) — `.replit` `userenv.shared` is normal tracked config, not a Secret; audit secret presence in the real workflow and CLI process.
+- [RPC write acknowledgements](rpc-write-acknowledgements.md) — response-validation failures can follow successful writes; reconcile by GET, never replay a one-shot import to discover its response.
+- [PostgREST store filter batching](postgrest-store-filter-batching.md) — broad manual regions can overflow a single store-ID price filter; chunk IDs while retaining online-store inclusion.

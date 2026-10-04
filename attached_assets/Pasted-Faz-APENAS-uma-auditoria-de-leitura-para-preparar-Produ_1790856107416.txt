@@ -1,0 +1,110 @@
+Faz APENAS uma auditoria de leitura para preparar ProductGroups
+de OVOS e ÁGUA.
+
+MODO:
+FREE.
+
+NÃO alteres ficheiros.
+NÃO alteres Supabase.
+NÃO cries ProductGroups.
+NÃO alteres product_group_items.
+NÃO alteres a interface.
+NÃO importes preços.
+
+OBJETIVO:
+
+Validar com segurança estes possíveis grupos:
+
+1. Ovos 6 unidades
+2. Ovos 12 unidades
+3. Água 0,5 L
+4. Água 1,5 L
+
+Usa apenas produtos ativos de public.products.
+
+--------------------------------
+OVOS
+--------------------------------
+
+Para Ovos 6 unidades e Ovos 12 unidades:
+
+- procurar ovos frescos reais;
+- aceitar nomes em português ou inglês quando forem claramente ovos;
+- confirmar package_quantity;
+- confirmar package_unit;
+- excluir produtos derivados de ovo;
+- excluir preparados alimentares;
+- excluir ovo líquido;
+- excluir maionese/molhos;
+- excluir chocolate/doces com "ovo" no nome;
+- excluir produtos ambíguos.
+
+NÃO separar biológico, classe, tamanho M/L/XL ou outras variantes
+neste passo.
+
+Se um produto indicar claramente Bio/Biológico/Organic,
+assinala-o para revisão e não o mistures automaticamente no grupo normal.
+
+--------------------------------
+ÁGUA
+--------------------------------
+
+Para Água 0,5 L e Água 1,5 L:
+
+Queremos inicialmente apenas água simples SEM GÁS.
+
+Aceitar:
+
+- água mineral natural;
+- água de nascente;
+- água simples sem gás.
+
+Excluir:
+
+- água com gás;
+- gaseificada;
+- sparkling;
+- carbonatada;
+- água tónica;
+- água aromatizada;
+- água com sabores;
+- bebidas funcionais;
+- bebidas com vitaminas;
+- refrigerantes;
+- qualquer produto que apenas contenha a palavra "água".
+
+Confirmar obrigatoriamente:
+
+- 0,5 L ou equivalente 500 ml;
+- 1,5 L ou equivalente 1500 ml;
+- embalagem estruturada válida.
+
+--------------------------------
+RESULTADO
+--------------------------------
+
+Para CADA grupo mostra TODOS os candidatos considerados seguros:
+
+- id
+- name
+- brand
+- barcode
+- category
+- package_quantity
+- package_unit
+
+Depois mostra separadamente os candidatos duvidosos/excluídos,
+com o motivo.
+
+NO FINAL RESPONDE APENAS:
+
+- Ovos 6 unidades: candidatos seguros e quantidade;
+- Ovos 12 unidades: candidatos seguros e quantidade;
+- Água 0,5 L: candidatos seguros e quantidade;
+- Água 1,5 L: candidatos seguros e quantidade;
+- produtos que precisam de revisão;
+- produtos excluídos e motivo;
+- quais dos 4 grupos recomenda criar;
+- confirmação de que nada foi alterado.
+
+NÃO FAÇAS ALTERAÇÕES.

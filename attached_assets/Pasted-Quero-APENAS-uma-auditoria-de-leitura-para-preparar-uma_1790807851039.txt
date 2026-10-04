@@ -1,0 +1,149 @@
+Quero APENAS uma auditoria de leitura para preparar uma nova forma de escolher produtos.
+
+NÃO alteres nenhum ficheiro.
+NÃO alteres Supabase.
+NÃO alteres dados.
+NÃO implementes nada.
+
+CONTEXTO
+
+A aplicação Cabaz Mais ou Menos tem agora:
+- 9.112 produtos reais em public.products
+- lojas reais em public.stores
+- pesquisa e paginação server-side
+- cabazes guardados
+- comparador de preços
+- detalhe da loja
+- price_history
+
+Queremos melhorar a experiência.
+
+Em vez de obrigar o utilizador a escolher imediatamente um produto exato entre milhares de referências, queremos futuramente permitir:
+
+Leite
+→ Meio-gordo
+→ 1 L
+→ Qualquer marca OU escolher marca
+→ adicionar ao cabaz
+→ comparar os produtos equivalentes com preços reais
+
+Exemplo de uma futura escolha genérica:
+
+tipo: Leite
+variante: Meio-gordo
+formato: 1 L
+marca: qualquer
+
+Também queremos manter a possibilidade de escolher um produto exato.
+
+IMPORTANTE:
+Ainda NÃO quero implementar esta funcionalidade.
+
+AUDITA O CÓDIGO ATUAL E RESPONDE:
+
+1. Onde está definido atualmente o tipo/interface Product?
+   Mostra os campos atuais.
+
+2. Como é representado um item dentro do cabaz?
+   Indica:
+   - ficheiro
+   - interface/tipo
+   - campos guardados
+   - quantidade
+
+3. Quando um produto é adicionado ao cabaz, o cabaz guarda:
+   - o objeto Product inteiro?
+   - product_id?
+   - nome?
+   - quantidade?
+   Explica exatamente.
+
+4. Como os cabazes guardados no AsyncStorage são representados?
+   Mostra a estrutura relevante.
+
+5. Quando um cabaz guardado é reaberto, como os produtos são recuperados?
+
+6. Como o comparador recebe os produtos do cabaz atualmente?
+
+7. Em services/prices.ts, como os preços são procurados?
+   Explica especialmente a relação:
+   product_id → store_id → price.
+
+8. O comparador atual exige um product_id exato ou já suporta algum conceito de produtos equivalentes?
+
+9. Que ficheiros teriam de ser alterados futuramente para suportar os dois tipos:
+
+A) PRODUTO EXATO
+Exemplo:
+Leite Mimosa Meio-Gordo 1 L
+product_id = UUID específico
+
+B) PEDIDO GENÉRICO
+Exemplo:
+Leite
+Meio-gordo
+1 L
+Qualquer marca
+
+10. Recomenda a alteração MÍNIMA de arquitetura para suportar pedidos genéricos sem:
+- destruir o funcionamento atual;
+- quebrar cabazes guardados;
+- quebrar comparação existente;
+- duplicar os 9.112 produtos;
+- inventar preços.
+
+11. Analisa se é melhor criar no Supabase futuramente:
+- novas colunas em products;
+OU
+- uma tabela de tipos/equivalências separada;
+OU
+- outra solução.
+
+Explica vantagens e desvantagens no contexto DESTA app.
+
+12. Indica como poderíamos representar de forma segura:
+
+Leite
+→ Meio-gordo
+→ 1 L
+→ Qualquer marca
+
+sem confundir com:
+- leite magro;
+- leite gordo;
+- leite sem lactose;
+- leite achocolatado;
+- chocolate de leite;
+- bebidas vegetais;
+- packs de várias unidades.
+
+13. Confirma se latitude, longitude e address das lojas estão atualmente disponíveis nos serviços usados pelo comparador/detalhe da loja.
+
+Isto é importante porque posteriormente queremos adicionar:
+
+- GPS opcional;
+- localização manual como alternativa;
+- raio de procura;
+- distância até às lojas;
+- botão “Como chegar”;
+- Google Maps;
+- Apple Maps no iPhone.
+
+14. Indica quais permissões/configurações Expo seriam necessárias futuramente para obter localização GPS UMA VEZ quando o utilizador pedir.
+
+NÃO instales nada.
+
+15. Identifica qualquer risco de compatibilidade com:
+- Expo;
+- Android;
+- iOS;
+- AsyncStorage;
+- testes atuais.
+
+No final dá uma recomendação técnica curta da sequência mais segura de implementação.
+
+NÃO FAÇAS ALTERAÇÕES.
+NÃO EXECUTES MIGRAÇÕES.
+NÃO CRIES TABELAS.
+NÃO INSTALES DEPENDÊNCIAS.
+É APENAS UMA AUDITORIA.

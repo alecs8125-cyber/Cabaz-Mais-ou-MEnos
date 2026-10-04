@@ -1,0 +1,125 @@
+Faz APENAS uma auditoria de leitura da implementação atual da comparação
+de ProductGroups.
+
+NÃO alteres ficheiros.
+NÃO alteres Supabase.
+NÃO implementes nada.
+NÃO instales dependências.
+
+ESTADO CONFIRMADO:
+
+- TypeScript passou.
+- 98 testes passaram, 0 falharam.
+- Linhas exatas continuam suportadas.
+- Linhas genéricas ProductGroup já são comparadas.
+- "Qualquer marca" considera todos os membros ativos.
+- Marca específica usa correspondência normalizada exata.
+- services/prices.ts não foi alterado.
+- Nenhum preço fictício deve ser usado.
+
+QUERO UMA REVISÃO DO CÓDIGO REAL IMPLEMENTADO.
+
+Verifica especificamente:
+
+1. Para uma linha genérica "Qualquer marca", confirma no código que
+cada loja pode escolher um productId diferente.
+
+2. Confirma que é escolhido apenas UM SKU por linha genérica e por loja,
+e não somados vários SKUs candidatos.
+
+3. Confirma que quantity é aplicada DEPOIS de escolher o SKU mais barato.
+
+Exemplo:
+preço SKU = 0,89 €
+quantity = 2
+subtotal esperado = 1,78 €.
+
+4. Confirma que o critério para escolher o SKU é o preço de UMA unidade
+do produto equivalente, e não o subtotal já multiplicado.
+
+5. Confirma que um candidato sem preço nessa loja não recebe:
+- 0 €;
+- preço de outra loja;
+- preço estimado;
+- fallback.
+
+6. Confirma que uma linha genérica sem qualquer candidato com preço
+válido conta exatamente como UMA linha em falta.
+
+Exemplo:
+1 pedido "Leite Meio-Gordo 1 L · Qualquer marca"
+com 27 candidatos sem preço
+= 1 produto em falta,
+NÃO 27.
+
+7. Confirma que os 27 candidatos não aparecem como 27 produtos encontrados.
+
+8. Confirma que a completude é calculada pelo número de LINHAS PEDIDAS
+no cabaz, não pelo número de SKUs candidatos.
+
+9. Confirma que uma loja incompleta não é apresentada como vencedora
+apenas porque o seu total parcial é inferior.
+
+Mostra exatamente a regra de ordenação atual para:
+- lojas completas;
+- lojas incompletas;
+- total;
+- produtos em falta.
+
+10. Confirma que um cabaz misto:
+
+- produto exato A
+- grupo B
+- produto exato C
+
+tem exatamente 3 linhas pedidas para efeitos de completude.
+
+11. Confirma que uma linha genérica com quantity = 5 continua a contar
+como UMA linha encontrada/em falta para completude.
+
+12. Confirma que marca específica usa igualdade normalizada completa,
+não substring.
+
+Exemplo:
+"Continente"
+NÃO deve corresponder automaticamente a:
+"Continente,SONAE".
+
+13. Confirma que produtos inativos associados ao grupo não chegam aos
+candidatos usados na comparação.
+
+14. Confirma que IDs repetidos entre:
+- linhas exatas;
+- grupos;
+- vários grupos
+
+são deduplicados antes da consulta de preços.
+
+15. Confirma que o SKU escolhido é apresentado no detalhe da loja, mas
+NÃO é gravado de volta no BasketContext nem no cabaz guardado.
+
+16. Confirma que a comparação exclusivamente com produtos exatos continua
+a seguir o fluxo anterior sem alteração semântica.
+
+17. Revê os testes atuais e identifica qualquer caso crítico da lógica
+acima que NÃO esteja realmente coberto por teste.
+
+18. Procura possíveis bugs ou regressões introduzidos no Passo 114.
+
+IMPORTANTE:
+
+Não assumes que "98 testes passaram" significa automaticamente que a
+implementação está correta.
+
+Lê o código real.
+
+NO FINAL RESPONDE APENAS:
+
+- resultado da auditoria: OK ou PROBLEMAS ENCONTRADOS;
+- resposta curta aos pontos 1-16;
+- casos críticos não cobertos por testes;
+- bugs/regressões encontrados;
+- ficheiros onde encontraste cada problema;
+- se é seguro avançar ou se devemos corrigir primeiro.
+
+NÃO FAÇAS ALTERAÇÕES.

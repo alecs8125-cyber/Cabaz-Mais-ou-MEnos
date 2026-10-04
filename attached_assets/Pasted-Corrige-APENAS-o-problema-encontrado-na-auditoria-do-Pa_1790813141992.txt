@@ -1,0 +1,200 @@
+Corrige APENAS o problema encontrado na auditoria do Passo 115 e
+reforça os testes críticos da comparação por ProductGroups.
+
+MODO:
+FREE.
+
+Faz alterações mínimas.
+
+NÃO alteres Supabase.
+NÃO alteres schema ou dados.
+NÃO alteres services/prices.ts.
+NÃO alteres lojas.
+NÃO implementes GPS ou Maps.
+NÃO alteres a lógica matemática da comparação que já foi validada.
+
+ESTADO CONFIRMADO:
+
+- TypeScript passou.
+- 98 testes passaram, 0 falharam.
+- A auditoria confirmou que a lógica de cálculo dos ProductGroups está correta.
+- Foi encontrado um problema real de texto na interface.
+- Também existem algumas lacunas de testes.
+- Existe uma possível consulta redundante ao regressar ao ecrã, mas NÃO
+  vamos mexer nisso nesta tarefa.
+
+-----------------------------------
+1. CORRIGIR TEXTO DA ORDENAÇÃO
+-----------------------------------
+
+Problema atual:
+
+app/(tabs)/comparar.tsx mostra sempre:
+
+"ORDENADO PELO TOTAL MAIS BAIXO"
+
+Mas existem dois comportamentos:
+
+A) comparação apenas com produtos exatos:
+mantém a ordenação anterior por total.
+
+B) comparação que contém ProductGroups:
+lojas completas são apresentadas primeiro;
+depois aplica-se o total crescente dentro de cada grupo de completude.
+
+Corrigir APENAS o texto apresentado ao utilizador para refletir a regra
+real.
+
+Quando existirem linhas genéricas/ProductGroups, usar um texto claro,
+por exemplo:
+
+"CABAZES COMPLETOS PRIMEIRO · DEPOIS MENOR TOTAL"
+
+Quando o cabaz tiver apenas produtos exatos, manter:
+
+"ORDENADO PELO TOTAL MAIS BAIXO"
+
+Não alterar a lógica de ordenação.
+
+-----------------------------------
+2. TESTE — 27 CANDIDATOS SEM PREÇO
+-----------------------------------
+
+Adicionar um teste em que UMA linha genérica tenha 27 productIds
+candidatos e nenhum tenha preço válido na loja.
+
+Confirmar:
+
+- missingCount = 1;
+- foundCount = 0;
+- não aparecem 27 faltas;
+- não aparecem 27 linhas;
+- não é criado preço 0;
+- subtotal da linha fica ausente/null conforme o modelo atual.
+
+-----------------------------------
+3. TESTE — QUANTITY 5
+-----------------------------------
+
+Adicionar teste:
+
+linha genérica quantity = 5.
+
+Confirmar:
+
+- continua a contar como UMA linha encontrada;
+- SKU escolhido é primeiro determinado pelo menor preço unitário;
+- subtotal = preço unitário × 5;
+- quantity não influencia a escolha entre SKUs equivalentes.
+
+-----------------------------------
+4. TESTE — CABAZ MISTO COM 3 LINHAS
+-----------------------------------
+
+Criar um teste com exatamente:
+
+- produto exato A;
+- ProductGroup B;
+- produto exato C.
+
+Confirmar:
+
+- total de linhas pedidas = 3;
+- found + missing corresponde a 3;
+- ProductGroup conta apenas uma vez;
+- os dois produtos exatos continuam independentes;
+- total usa apenas os preços reais encontrados.
+
+-----------------------------------
+5. TESTE — IDs REPETIDOS ENTRE VÁRIOS GRUPOS
+-----------------------------------
+
+Criar pelo menos dois ProductGroups cujas listas de candidatos tenham
+algum productId em comum.
+
+Confirmar:
+
+- IDs são deduplicados antes da consulta de preços;
+- a sobreposição não duplica preços;
+- cada linha de grupo continua a ser calculada separadamente;
+- cada grupo continua a contar como UMA linha do cabaz.
+
+-----------------------------------
+6. TESTE DA REGRA DE ORDENAÇÃO
+-----------------------------------
+
+Adicionar/confirmar teste explícito:
+
+Loja A:
+cabaz completo
+total 10 €
+
+Loja B:
+cabaz incompleto
+total parcial 5 €
+
+Num cabaz com ProductGroup:
+
+Loja A deve aparecer antes da Loja B.
+
+Não alterar a regra atual; apenas garantir cobertura.
+
+-----------------------------------
+7. NÃO MEXER NA CONSULTA REDUNDANTE
+-----------------------------------
+
+A auditoria identificou que, ao regressar ao ecrã, membros e preços
+podem ser atualizados em paralelo e provocar uma consulta adicional.
+
+NÃO corrigir isso agora.
+
+NÃO refatorar useFocusEffect/useEffect apenas por esse motivo.
+
+É uma otimização posterior e não um erro de cálculo confirmado.
+
+-----------------------------------
+8. NÃO ALTERAR
+-----------------------------------
+
+Não alterar:
+
+- services/prices.ts;
+- algoritmo de escolha do SKU;
+- filtros de preço;
+- ProductGroups no Supabase;
+- product_group_items;
+- products;
+- prices;
+- stores;
+- BasketContext;
+- saved-baskets;
+- GPS;
+- Maps;
+- configuração Android/iOS.
+
+-----------------------------------
+9. EXECUTAR
+-----------------------------------
+
+Executar:
+
+- TypeScript;
+- todos os testes.
+
+-----------------------------------
+10. NO FINAL RESPONDE APENAS
+-----------------------------------
+
+- ficheiros alterados;
+- texto usado para cabaz apenas exato;
+- texto usado quando existem ProductGroups;
+- confirmação de que a lógica de ordenação não foi alterada;
+- resultado do teste com 27 candidatos sem preço;
+- resultado do teste quantity 5;
+- resultado do teste cabaz misto com 3 linhas;
+- resultado do teste de IDs sobrepostos entre grupos;
+- resultado do teste completa 10 € vs incompleta 5 €;
+- confirmação de que services/prices.ts não foi alterado;
+- confirmação de que Supabase/schema/dados não foram alterados;
+- resultado TypeScript;
+- número total de testes passados e falhados.
