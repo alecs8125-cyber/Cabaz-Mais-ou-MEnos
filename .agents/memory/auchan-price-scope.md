@@ -7,4 +7,4 @@ Treat Auchan's public pre-login product prices as reference-only for delivery or
 
 **Why:** Auchan's public pricing notice limits the pre-login reference price to one postal code, while login-dependent prices vary by serving store and postal code.
 
-**How to apply:** Keep public-page ingestion GET-only and dry-run-only under the current evidence. Before any price write, establish the intended postal/store scope, verify store and price identity uniqueness, and extend the server-side price RPC to authorize Auchan without weakening Continente's existing constraints.
+**How to apply:** Keep public-page ingestion GET-only and dry-run-only. The published postal-code setter redirected a direct GET to `CSRF-AjaxFail`; do not follow or bypass it. Before any price write, establish the postal/store scope through a supported public resolver, verify store and price identity uniqueness, and extend the server-side price RPC without weakening Continente's constraints.
