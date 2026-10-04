@@ -10,3 +10,4 @@
 - [Server secrets propagation](server-secrets-propagation.md) — `.replit` `userenv.shared` is normal tracked config, not a Secret; audit secret presence in the real workflow and CLI process.
 - [RPC write acknowledgements](rpc-write-acknowledgements.md) — response-validation failures can follow successful writes; reconcile by GET, never replay a one-shot import to discover its response.
 - [PostgREST store filter batching](postgrest-store-filter-batching.md) — broad manual regions can overflow a single store-ID price filter; chunk IDs while retaining online-store inclusion.
+- [Auchan price scope](auchan-price-scope.md) — pre-login Auchan prices refer only to postal code 2650-435; do not create a generic online store or write those prices.

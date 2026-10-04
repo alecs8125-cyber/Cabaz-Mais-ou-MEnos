@@ -6,12 +6,14 @@ export type ContinenteMatchLevel =
 
 export type ContinenteMatchMethod =
   | "verified_external_mapping"
+  | "source_native_exact"
+  | "source_native_inactive"
   | "barcode_exact"
   | "name_brand_exact_unique"
   | null;
 
 export interface ContinenteProductObservation {
-  readonly sourceType: "continente";
+  readonly sourceType: string;
   readonly externalProductId: string | null;
   readonly externalProductIdReason: string | null;
   readonly sourceReference: string;
@@ -89,6 +91,18 @@ export interface ContinenteCatalogProduct {
   readonly barcode: string | null;
   readonly unit: string | null;
   readonly active: boolean;
+  readonly sourceType?: string | null;
+  readonly externalId?: string | null;
+}
+
+export interface ProductMatchObservation {
+  readonly sourceType: string;
+  readonly externalProductId: string | null;
+  readonly barcode: string | null;
+  readonly name: string | null;
+  readonly brand: string | null;
+  readonly packageQuantity: number | null;
+  readonly packageUnit: string | null;
 }
 
 export interface ContinenteExternalProductMapping {

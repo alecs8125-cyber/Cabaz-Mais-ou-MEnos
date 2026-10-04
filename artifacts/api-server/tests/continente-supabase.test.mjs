@@ -34,7 +34,10 @@ test("o catálogo Continente só consulta public.products por GET, sem mutaçõe
   assert.equal(catalog.length, 1);
   assert.equal(calls.length, 1);
   assert.equal(calls[0].url.pathname, "/rest/v1/products");
-  assert.equal(calls[0].url.searchParams.get("select"), "id,name,brand,barcode,unit,active");
+  assert.equal(
+    calls[0].url.searchParams.get("select"),
+    "id,name,brand,barcode,unit,active,source_type,external_id",
+  );
   assert.equal(calls[0].url.searchParams.get("active"), "eq.true");
   assert.equal(calls[0].init.method, "GET");
   assert.equal(calls[0].url.pathname.includes("prices"), false);

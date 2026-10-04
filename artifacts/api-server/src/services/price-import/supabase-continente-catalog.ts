@@ -6,12 +6,16 @@ import type { SupabaseReadOnlyClient } from "./supabase-read.js";
 
 const PAGE_SIZE = 500;
 const MAX_ACTIVE_PRODUCTS = 10_000;
-const PRODUCT_COLUMNS = "id,name,brand,barcode,unit,active";
+const PRODUCT_COLUMNS = "id,name,brand,barcode,unit,active,source_type,external_id";
 
 function nullableText(value: unknown, field: string): string | null {
   if (value === null) return null;
   if (typeof value === "string") return value;
   throw new Error(`public.products.${field} was not a string or null.`);
+}
+
+function optionalNullableText(value: unknown, field: string): string | null {
+  return value === undefined ? null : nullableText(value, field);
 }
 
 function readCatalogProduct(row: Record<string, unknown>): ContinenteCatalogProduct {
@@ -29,6 +33,8 @@ function readCatalogProduct(row: Record<string, unknown>): ContinenteCatalogProd
     barcode: nullableText(row.barcode, "barcode"),
     unit: nullableText(row.unit, "unit"),
     active: row.active,
+    sourceType: optionalNullableText(row.source_type, "source_type"),
+    externalId: optionalNullableText(row.external_id, "external_id"),
   };
 }
 
@@ -37,16 +43,27 @@ export class SupabaseContinenteProductCatalog {
   constructor(private readonly client: SupabaseReadOnlyClient) {}
 
   async loadActiveProducts(): Promise<ContinenteCatalogProduct[]> {
+    return this.loadProducts(true);
+  }
+
+  async loadAllProducts(): Promise<ContinenteCatalogProduct[]> {
+    return this.loadProducts(false);
+  }
+
+  private async loadProducts(activeOnly: boolean): Promise<ContinenteCatalogProduct[]> {
     const products: ContinenteCatalogProduct[] = [];
     for (let offset = 0; offset < MAX_ACTIVE_PRODUCTS; offset += PAGE_SIZE) {
-      const rows = await this.client.getRows("products", {
+      const query: Record<string, string> = {
         select: PRODUCT_COLUMNS,
-        active: "eq.true",
         order: "id.asc",
         limit: String(PAGE_SIZE),
         offset: String(offset),
-      });
-      const page = rows.map(readCatalogProduct).filter((product) => product.active);
+      };
+      if (activeOnly) query.active = "eq.true";
+      const rows = await this.client.getRows("products", query);
+      const page = rows
+        .map(readCatalogProduct)
+        .filter((product) => !activeOnly || product.active);
       products.push(...page);
       if (rows.length < PAGE_SIZE) return products;
     }

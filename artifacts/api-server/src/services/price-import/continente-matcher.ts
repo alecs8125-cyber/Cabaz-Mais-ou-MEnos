@@ -4,6 +4,7 @@ import type {
   ContinenteMappingRepository,
   ContinenteProductMatch,
   ContinenteProductObservation,
+  ProductMatchObservation,
 } from "./continente-types.js";
 
 export class EmptyContinenteMappingRepository implements ContinenteMappingRepository {
@@ -72,7 +73,7 @@ function catalogBarcode(value: string | null): string | null {
 
 function identityMatches(
   mapping: ContinenteExternalProductMapping,
-  observation: ContinenteProductObservation,
+  observation: ProductMatchObservation,
 ): boolean {
   return mapping.verified === true &&
     mapping.sourceType === observation.sourceType &&
@@ -101,10 +102,11 @@ function result(
   };
 }
 
-export async function matchContinenteProduct(
-  observation: ContinenteProductObservation,
+async function matchProduct(
+  observation: ProductMatchObservation,
   catalog: readonly ContinenteCatalogProduct[],
   mappings: ContinenteMappingRepository,
+  preferSourceNative: boolean,
 ): Promise<ContinenteProductMatch> {
   const activeCatalog = catalog.filter((product) =>
     product.active &&
@@ -157,6 +159,42 @@ export async function matchContinenteProduct(
           "The verified mapping points to a non-unique catalog product ID.",
         );
       }
+    }
+  }
+
+  if (preferSourceNative && observation.externalProductId) {
+    const sourceNative = catalog.filter((product) =>
+      product.sourceType === observation.sourceType &&
+      product.externalId === observation.externalProductId
+    );
+    if (sourceNative.length > 1) {
+      return result(
+        "ambiguous",
+        "source_native_exact",
+        0,
+        sourceNative,
+        "More than one catalog product has this exact source-native identity.",
+      );
+    }
+    if (sourceNative.length === 1) {
+      const product = sourceNative[0]!;
+      if (product.active) {
+        return result(
+          "exact",
+          "source_native_exact",
+          1,
+          [product],
+          "An active catalog product already has this exact source-native identity.",
+        );
+      }
+      return {
+        level: "unmatched",
+        method: "source_native_inactive",
+        confidence: 0,
+        candidateCount: 1,
+        product,
+        explanation: "This source-native catalog product exists but is inactive; it is not a price target.",
+      };
     }
   }
 
@@ -259,4 +297,20 @@ export async function matchContinenteProduct(
     [],
     "No verified mapping, exact barcode, or unique exact normalized name-and-brand match was found.",
   );
+}
+
+export function matchContinenteProduct(
+  observation: ContinenteProductObservation,
+  catalog: readonly ContinenteCatalogProduct[],
+  mappings: ContinenteMappingRepository,
+): Promise<ContinenteProductMatch> {
+  return matchProduct(observation, catalog, mappings, false);
+}
+
+export function matchAuchanProduct(
+  observation: ProductMatchObservation,
+  catalog: readonly ContinenteCatalogProduct[],
+  mappings: ContinenteMappingRepository,
+): Promise<ContinenteProductMatch> {
+  return matchProduct(observation, catalog, mappings, true);
 }

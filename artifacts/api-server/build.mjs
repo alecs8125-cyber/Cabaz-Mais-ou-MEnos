@@ -31,6 +31,10 @@ async function buildAll() {
         artifactDir,
         "src/price-import-continente-dry-run.ts",
       ),
+      "price-import-auchan-dry-run": path.resolve(
+        artifactDir,
+        "src/price-import-auchan-dry-run.ts",
+      ),
     },
     platform: "node",
     bundle: true,
