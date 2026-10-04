@@ -1,0 +1,455 @@
+PASSO 171 MEGA — IMPLEMENTAR AUCHAN PORTUGAL
+
+MODO:
+FREE.
+
+IMPORTANTE:
+Quero uma tarefa GRANDE.
+NÃO dividir em micro-passos.
+NÃO parar para perguntas que possas resolver tecnicamente.
+NÃO usar POWER/MAX.
+NÃO gastar tempo em arquitetura nova se puderes reutilizar Continente.
+
+O Continente já funciona:
+site público
+→ sync server-side
+→ products/mappings
+→ prices/history
+→ Supabase
+→ app
+→ GitHub Actions diário.
+
+REUTILIZA esta arquitetura.
+
+==================================================
+OBJETIVO
+==================================================
+
+Tentar deixar AUCHAN PORTUGAL funcional end-to-end:
+
+Auchan público
+→ parser
+→ identificação estável
+→ produto
+→ preço
+→ Supabase
+→ Auchan Online
+→ pesquisa
+→ cabaz
+→ comparação
+→ detalhe
+
+Se tudo for seguro, fazer primeiro commit real controlado.
+
+==================================================
+1. PRIMEIRO: AUDITORIA WEB GET-ONLY
+==================================================
+
+Investiga apenas páginas públicas de:
+
+https://www.auchan.pt/
+
+Sem login.
+Sem carrinho.
+Sem conta.
+Sem scraping agressivo.
+Sem browser headless inicialmente.
+Sem CAPTCHA bypass.
+Sem contornar proteções.
+
+Máximo da auditoria:
+100 páginas/produtos.
+
+Procurar:
+
+- sitemap/index de produtos;
+- URLs estáveis;
+- JSON-LD;
+- JSON público embutido;
+- SKU/product ID;
+- GTIN/EAN/barcode;
+- nome;
+- marca;
+- preço atual;
+- preço anterior;
+- promoção;
+- quantidade;
+- unidade;
+- disponibilidade;
+- imagem;
+- categoria se explicitamente fornecida.
+
+Preferir HTML estático / JSON estruturado.
+
+==================================================
+2. IDENTIFICADOR EXTERNO
+==================================================
+
+Encontrar um identificador de produto Auchan realmente estável.
+
+Pode ser:
+
+- SKU;
+- product ID;
+- ID de URL;
+- outro ID público consistente.
+
+Validar pelo menos 20 produtos.
+
+O mesmo produto deve conservar o mesmo ID entre leituras.
+
+NÃO usar nome como identificador primário.
+
+Definir:
+
+source_type = 'auchan'
+
+external_product_id = identificador estável confirmado.
+
+==================================================
+3. ESCOPO DO PREÇO
+==================================================
+
+ISTO É CRÍTICO.
+
+Determinar se o preço público observado é:
+
+A) preço geral Auchan Online;
+
+B) preço dependente de loja/zona;
+
+C) não é possível provar o escopo.
+
+NÃO inventar loja física.
+
+NÃO associar preço online a hipermercado físico.
+
+Se for claramente canal online sem loja física identificada:
+usar conceito:
+
+Auchan Online
+
+store_type = online
+source_type = auchan
+external_id = online
+
+MAS:
+se isso não estiver suficientemente demonstrado,
+NÃO criar store nem escrever prices.
+Reportar bloqueio.
+
+Verificar também se cookies/zona/loja selecionada alteram preços,
+dentro do que é possível fazer sem login.
+
+==================================================
+4. REUTILIZAR INFRAESTRUTURA EXISTENTE
+==================================================
+
+Reutilizar:
+
+- external_product_mappings;
+- RPC de preço/histórico existente quando genérica e compatível;
+- services existentes;
+- lógica online da app;
+- store-channel;
+- comparison;
+- checkpoint/sync patterns do Continente.
+
+NÃO copiar código desnecessariamente.
+
+Criar adaptador isolado para Auchan.
+
+==================================================
+5. MATCHING DE PRODUTO
+==================================================
+
+Resolver nesta ordem:
+
+1. external_product_mappings existente;
+2. product source-native Auchan existente;
+3. barcode exato, SE existir;
+4. nome + marca exatos e únicos quando seguro;
+5. caso contrário source-native Auchan.
+
+Nunca fazer fuzzy match arriscado.
+
+Para source-native usar somente dados reais disponíveis.
+
+NÃO inventar:
+
+- barcode;
+- marca;
+- categoria;
+- package_quantity;
+- package_unit;
+- unit.
+
+Campos desconhecidos ficam NULL quando o schema permitir.
+
+==================================================
+6. SCHEMA / SQL
+==================================================
+
+NÃO executar SQL.
+NÃO modificar schema.
+
+O utilizador quer que todo SQL seja escrito pelo ChatGPT,
+não pelo Replit.
+
+Auditar se a infraestrutura atual já permite Auchan.
+
+Se for necessária:
+
+- nova unique index;
+- nova RPC;
+- alteração de constraint;
+- alteração de store_type;
+
+NÃO criar.
+
+Implementa tudo o que for possível e no relatório final
+explica exatamente o mínimo que falta.
+
+Só parar o commit real se o schema atual não garantir segurança.
+
+==================================================
+7. DRY RUN AUCHAN
+==================================================
+
+Criar comando equivalente a:
+
+pnpm --filter @workspace/api-server run dry-run:auchan -- --limit=100
+
+ou integrar no sistema atual de forma limpa.
+
+O dry run deve mostrar:
+
+- URLs encontradas;
+- páginas válidas;
+- produtos;
+- preços;
+- IDs externos;
+- barcodes;
+- package data;
+- promoções;
+- matches exatos;
+- matches seguros;
+- source-native propostos;
+- ambiguidades;
+- unavailable;
+- redirects;
+- erros.
+
+ZERO escritas.
+
+==================================================
+8. FRESHNESS
+==================================================
+
+Se o preço puder ser tratado como preço online atual:
+
+captured_at = momento real da recolha
+
+valid_from = captured_at
+
+valid_until = captured_at + 36 horas
+
+Esta é política local Cabaz,
+não alegar que a Auchan fornece validade de 36h.
+
+verification_status = verified
+apenas quando o registo passar todas as validações.
+
+==================================================
+9. PRIMEIRO COMMIT REAL
+==================================================
+
+SÓ se TODAS estas condições forem verdade:
+
+- identificador estável confirmado;
+- preço público real confirmado;
+- escopo online suficientemente seguro;
+- store Auchan Online resolvível de forma segura;
+- schema atual garante identidade/idempotência;
+- dry run sem erros críticos;
+- matching/source-native seguro.
+
+Então executar:
+
+UM ÚNICO commit real
+de máximo 20 produtos.
+
+Dry run primeiro.
+Commit depois.
+
+NÃO ultrapassar 20 produtos no primeiro commit.
+
+==================================================
+10. PREÇO / HISTÓRICO
+==================================================
+
+Usar a mesma semântica segura do Continente:
+
+primeira observação:
+price + history
+
+mesmo preço:
+renovar captured_at / valid_until
+SEM duplicar history
+
+preço mudou:
+atualizar price
++ nova linha history
+
+Nunca fazer escrita direta insegura se já existe RPC apropriada.
+
+==================================================
+11. IDEMPOTÊNCIA
+==================================================
+
+Depois do commit real:
+
+executar o MESMO lote novamente em DRY RUN.
+
+Confirmar:
+
+- 0 products duplicados;
+- 0 mappings duplicados;
+- 0 prices duplicados;
+- produtos reutilizados;
+- mappings reutilizados.
+
+Não fazer segundo commit.
+
+==================================================
+12. APP
+==================================================
+
+Se existirem preços reais Auchan gravados:
+
+testar pelo menos 1 produto real:
+
+pesquisa
+→ adicionar ao cabaz
+→ comparar
+→ Auchan Online
+→ preço
+→ detalhe.
+
+Confirmar:
+
+- Online;
+- sem distância;
+- sem concelho/distrito inventado;
+- preço correto;
+- subtotal;
+- total;
+- captured_at;
+- preço expirado fica de fora.
+
+Preferir teste determinístico READ-ONLY.
+Browser é secundário.
+
+==================================================
+13. PREPARAR SYNC FUTURO
+==================================================
+
+Se o primeiro lote funcionar:
+
+preparar arquitetura para:
+
+- refresh dos conhecidos;
+- discovery;
+- checkpoint separado source_type='auchan';
+- resume;
+- lotes;
+- execução finita.
+
+NÃO criar GitHub Action ainda.
+
+Primeiro provar Auchan real end-to-end.
+
+==================================================
+14. TESTES
+==================================================
+
+Executar apenas testes relevantes:
+
+- parser;
+- adapter;
+- matching;
+- idempotência;
+- preço;
+- history;
+- online;
+- comparação.
+
+Depois:
+
+- testes API;
+- typecheck API;
+- build API;
+- testes app afetados;
+- typecheck app.
+
+Não perder tempo com erros antigos não relacionados.
+
+==================================================
+15. LIMITES DE CUSTO/TEMPO
+==================================================
+
+O utilizador quer terminar rapidamente e poupar saldo.
+
+- FREE apenas.
+- máximo 100 páginas de auditoria/dry run.
+- máximo 20 produtos no primeiro commit.
+- concorrência HTTP baixa: 2 ou 3.
+- sem browser headless salvo se absolutamente necessário.
+- se o site bloquear ou exigir investigação longa,
+  PARA e reporta o bloqueio.
+- não repetir pesquisas já concluídas.
+
+==================================================
+NO FINAL RESPONDE APENAS
+==================================================
+
+- Auchan tecnicamente viável: sim/não;
+- método de leitura;
+- JavaScript/browser necessário: sim/não;
+- sitemaps/catálogo encontrados;
+- identificador externo escolhido;
+- estabilidade confirmada: sim/não;
+- escopo do preço;
+- produtos auditados;
+- preços encontrados;
+- barcodes encontrados;
+- formatos encontrados;
+- promoções encontradas;
+- exact matches;
+- high-confidence matches;
+- ambiguous;
+- source-native propostos;
+- ficheiros criados;
+- ficheiros alterados;
+- schema atual suficiente: sim/não;
+- se não, alterações DB mínimas necessárias;
+- dry run saudável: sim/não;
+- commit real executado: sim/não;
+- products criados;
+- products reutilizados;
+- mappings criados;
+- prices criados;
+- history criado;
+- duplicados;
+- validade 36h correta: sim/não;
+- segundo dry run idempotente: sim/não;
+- produto Auchan testado na app;
+- preço mostrado;
+- Auchan Online apareceu: sim/não;
+- distância escondida: sim/não;
+- detalhe validado: sim/não;
+- testes passados/falhados;
+- typecheck/build;
+- ZERO SQL executado: confirmar;
+- conclusão:
+  Auchan real está funcional end-to-end: sim/não.
