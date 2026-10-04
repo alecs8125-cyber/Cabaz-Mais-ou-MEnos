@@ -235,7 +235,7 @@ function summarizeAges(
   };
 }
 
-function isCurrentVerifiedPrice(
+export function isCurrentVerifiedPrice(
   price: PriceCoverageAuditRow,
   now: number,
 ): { readonly current: boolean; readonly expired: boolean; readonly invalidWindow: boolean } {
@@ -498,11 +498,10 @@ export function buildPriceCoverageAuditReport(
   }
 
   const storesBySourceAndChannel = new Map<string, Map<string, Map<string, PriceCoverageAuditRow>>>();
-  const addStoreChannel = (
+  const ensureSourceChannel = (
     sourceType: string | null,
     channel: string,
-    store: PriceCoverageAuditRow,
-  ) => {
+  ): Map<string, PriceCoverageAuditRow> => {
     const key = sourceKey(sourceType);
     let channels = storesBySourceAndChannel.get(key);
     if (!channels) {
@@ -514,6 +513,14 @@ export function buildPriceCoverageAuditReport(
       stores = new Map();
       channels.set(channel, stores);
     }
+    return stores;
+  };
+  const addStoreChannel = (
+    sourceType: string | null,
+    channel: string,
+    store: PriceCoverageAuditRow,
+  ) => {
+    const stores = ensureSourceChannel(sourceType, channel);
     stores.set(requiredText(store, "id", "stores"), store);
   };
 
@@ -533,6 +540,8 @@ export function buildPriceCoverageAuditReport(
         channelForStore(store),
         store,
       );
+    } else {
+      ensureSourceChannel(sourceTypeOf(price, "prices"), "loja em falta");
     }
   }
 
@@ -629,7 +638,7 @@ export function buildPriceCoverageAuditReport(
   }
 
   return {
-    generatedAt: new Date().toISOString(),
+    generatedAt: asOf.toISOString(),
     asOf: asOf.toISOString(),
     readOnly: true,
     databaseWrites: 0,
