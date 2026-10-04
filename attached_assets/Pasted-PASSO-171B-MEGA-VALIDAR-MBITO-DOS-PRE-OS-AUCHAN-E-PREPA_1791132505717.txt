@@ -1,0 +1,334 @@
+PASSO 171B MEGA — VALIDAR ÂMBITO DOS PREÇOS AUCHAN E PREPARAR IMPORTAÇÃO SEGURA
+
+MODO:
+FREE.
+
+CONTEXTO:
+
+O adaptador Auchan já existe e funciona GET-only.
+
+Auditoria confirmada:
+
+- 100 pedidos de páginas no total;
+- IDs/SKUs estáveis;
+- páginas públicas;
+- preços encontrados;
+- preço observado associado ao código postal 2650-435, Amadora;
+- 30 produtos source-native propostos;
+- 1 match exato;
+- 0 escritas;
+- 0 SQL;
+- testes do importador passaram.
+
+BLOQUEIO:
+
+Ainda não sabemos se o preço é:
+
+- por loja física;
+- por código postal;
+- por região;
+- ou um preço online geral.
+
+A RPC atual também está limitada ao Continente.
+
+QUERO RESOLVER TUDO ISTO NUMA ÚNICA TAREFA DE VALIDAÇÃO.
+
+NÃO executar SQL.
+NÃO escrever em Supabase.
+NÃO criar lojas.
+NÃO criar preços.
+NÃO alterar schema.
+NÃO fazer commit de dados.
+
+==================================================
+1. DESCOBRIR CONTEXTO DE LOJA AUCHAN
+==================================================
+
+Investigar apenas mecanismos públicos usados pelo site Auchan.
+
+Descobrir se ao fornecer código postal o site resolve:
+
+- store ID;
+- store name;
+- fulfillment/store code;
+- warehouse;
+- delivery zone;
+- pickup store;
+- region;
+- outro identificador estável.
+
+Inspecionar:
+
+- HTML;
+- JSON embutido;
+- requests GET públicos;
+- cookies não autenticados;
+- parâmetros de URL;
+- headers/respostas relevantes.
+
+NÃO usar login.
+NÃO usar conta.
+NÃO adicionar ao carrinho.
+NÃO contornar proteções.
+
+==================================================
+2. COMPARAR PREÇOS ENTRE ZONAS
+==================================================
+
+Usar uma pequena amostra dos MESMOS produtos.
+
+Máximo:
+20 produtos.
+
+Testar pelo menos 3 contextos geográficos públicos,
+incluindo o contexto já observado de Amadora.
+
+Pode usar códigos postais públicos genéricos de Lisboa/Porto/Faro
+ou outros contextos aceites pelo próprio site.
+
+O objetivo NÃO é recolher catálogo.
+É comparar exatamente os mesmos SKUs.
+
+Para cada SKU registar:
+
+- preço por contexto;
+- promoção;
+- disponibilidade;
+- store/warehouse ID se existir;
+- store/warehouse name se existir.
+
+No final calcular:
+
+- quantos SKUs têm preço igual em todas as zonas;
+- quantos mudam;
+- quantos ficam indisponíveis;
+- se a loja/contexto muda.
+
+==================================================
+3. DECIDIR MODELO CORRETO
+==================================================
+
+Classificar obrigatoriamente numa destas categorias:
+
+A)
+Preço nacional/geral Auchan Online comprovado.
+
+B)
+Preço associado a uma loja física identificável.
+
+C)
+Preço associado a uma zona/código postal,
+mas sem loja física concreta.
+
+D)
+Âmbito ainda não demonstrável.
+
+Não escolher A apenas porque vários preços coincidem.
+É preciso evidência estrutural.
+
+==================================================
+4. SE FOR LOJA FÍSICA
+==================================================
+
+Se o site devolver um ID estável de loja física:
+
+comparar com public.stores.
+
+Tentar correspondência segura por:
+
+1. source_type/external_id já existente;
+2. identificador OSM se houver prova;
+3. nome + endereço apenas para AUDITORIA.
+
+NÃO criar mapping automaticamente.
+
+Mostrar:
+
+- loja Auchan externa;
+- ID externo;
+- nome;
+- endereço;
+- possível store_id Cabaz;
+- confiança.
+
+==================================================
+5. SE FOR POR ZONA/CÓDIGO POSTAL
+==================================================
+
+Se o preço variar por código postal mas não existir loja física clara:
+
+NÃO usar uma única "Auchan Online".
+
+Propor um modelo correto, por exemplo:
+
+Auchan Online + contexto regional/zona
+
+OU
+
+uma tabela de contexto/mapping independente.
+
+Mas NÃO implementar schema.
+
+Explicar o mínimo necessário para a app conseguir escolher
+o preço correto a partir da localização manual do utilizador.
+
+==================================================
+6. AUDITAR A RPC ATUAL
+==================================================
+
+Inspecionar a implementação real e o código cliente de:
+
+public.upsert_verified_price_with_history
+
+e de:
+
+public.continente_sync_capabilities
+
+Determinar exatamente:
+
+- onde está hardcoded "continente";
+- quais verificações são genéricas;
+- quais são específicas;
+- se a RPC de preço é realmente específica do Continente
+  ou se a limitação está no preflight/capabilities;
+- quais unique indexes existem hoje.
+
+NÃO alterar nada.
+
+==================================================
+7. PROPOR GENERALIZAÇÃO SEGURA
+==================================================
+
+Quero reaproveitar a arquitetura para:
+
+- continente
+- auchan
+- supermercados futuros
+
+Sem perder garantias atuais.
+
+Propor o mínimo necessário, por exemplo:
+
+source_sync_capabilities(source_type)
+
+OU
+
+RPC genérica equivalente.
+
+Mas NÃO criar SQL.
+
+Indicar:
+
+- constraints;
+- indexes;
+- função/RPC;
+- permissões;
+- idempotência;
+- como manter Continente intacto.
+
+==================================================
+8. IDENTIDADE DE PREÇO AUCHAN
+==================================================
+
+Definir qual deveria ser o external_id do preço.
+
+Se nacional online:
+online:SKU
+
+Se loja física:
+<storeExternalId>:SKU
+
+Se zona:
+<zoneExternalId>:SKU
+
+Não inventar valor.
+Derivar apenas do contexto real confirmado.
+
+==================================================
+9. VALIDADE
+==================================================
+
+Manter política local proposta:
+
+captured_at = momento da observação
+valid_from = captured_at
+valid_until = captured_at + 36h
+
+Mas deixar claro:
+36h é política Cabaz, não dado da Auchan.
+
+==================================================
+10. APP
+==================================================
+
+Auditar se a app atual suporta corretamente o modelo identificado.
+
+Se for loja física:
+verificar se filtragem manual por distrito/concelho/freguesia
+consegue mostrar apenas preços da loja adequada.
+
+Se for zona online:
+verificar que não tratamos incorretamente como preço nacional.
+
+NÃO alterar a app neste passo,
+a menos que seja apenas teste sem mudança funcional.
+
+==================================================
+11. CUSTOS / LIMITES
+==================================================
+
+FREE apenas.
+
+Máximo adicional:
+60 pedidos HTTP públicos.
+
+Não fazer catálogo completo.
+Não fazer browser headless salvo se indispensável.
+Não fazer pesquisa exploratória longa.
+
+Se não houver evidência suficiente:
+PARAR e classificar como D.
+
+==================================================
+12. TESTES
+==================================================
+
+Executar:
+
+- testes do parser Auchan;
+- testes do adaptador;
+- testes de resolução de contexto;
+- typecheck api-server;
+- build api-server.
+
+Não perder tempo no mockup-sandbox.
+
+==================================================
+NO FINAL RESPONDE APENAS
+==================================================
+
+- classificação final A/B/C/D;
+- preço é nacional: sim/não/não comprovado;
+- preço varia por código postal: sim/não;
+- códigos postais/contextos testados;
+- SKUs comparados;
+- preços iguais em todas as zonas;
+- preços diferentes;
+- indisponibilidades;
+- identificador de loja/zona encontrado: sim/não;
+- tipo de identificador;
+- exemplos de loja/zona resolvidos;
+- correspondências seguras com public.stores;
+- external_id recomendado para prices;
+- modelo recomendado para Auchan;
+- RPC atual é realmente específica do Continente: sim/não/parcial;
+- partes hardcoded encontradas;
+- alterações DB mínimas necessárias;
+- alterações app mínimas necessárias;
+- ficheiros alterados;
+- testes passados/falhados;
+- typecheck/build;
+- ZERO SQL executado: sim;
+- ZERO escritas Supabase: sim;
+- conclusão:
+  Auchan pode avançar para primeiro commit real: sim/não.
