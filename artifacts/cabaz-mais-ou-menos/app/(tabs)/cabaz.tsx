@@ -94,13 +94,13 @@ export default function CabazScreen() {
             eyebrow="Cabaz vazio"
             title="Ainda não há nada no teu cabaz"
             body="Junta os produtos que compras habitualmente. Total atual: 0,00 €."
-            note="Cabaz desta sessão, com produtos e preços de demonstração."
+            note="O cabaz é guardado neste dispositivo. Os preços de demonstração são fictícios."
           />
         ) : (
           <View style={{ gap: 10 }}>
             <SectionHeader
               title="Produtos"
-              hint={`${totalQuantity} ${totalQuantity === 1 ? 'unidade' : 'unidades'} · Cabaz desta sessão`}
+              hint={`${totalQuantity} ${totalQuantity === 1 ? 'unidade' : 'unidades'} · Guardado neste dispositivo`}
             />
             {items.map((item) => (
               <BasketRow

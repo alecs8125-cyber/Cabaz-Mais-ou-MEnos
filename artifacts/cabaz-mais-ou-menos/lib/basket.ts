@@ -1,4 +1,4 @@
-import type { CatalogProduct, SupabaseProduct } from './product-types';
+import type { CatalogProduct, ProductGroup, SupabaseProduct } from './product-types';
 import { getDemoProduct } from './products';
 
 export interface ExactBasketLine {
@@ -34,6 +34,14 @@ export interface ProductGroupBasketItem extends ProductGroupBasketLine {
 export type BasketItem = ExactBasketItem | ProductGroupBasketItem;
 
 export type BasketAction =
+  | {
+      type: 'hydrateGroups';
+      groups: readonly ProductGroup[];
+    }
+  | {
+      type: 'hydrateProducts';
+      products: readonly SupabaseProduct[];
+    }
   | {
       type: 'add' | 'remove' | 'increase' | 'decrease';
       productId: string;
@@ -102,6 +110,50 @@ export function basketReducer(
   lines: readonly BasketLine[],
   action: BasketAction,
 ): readonly BasketLine[] {
+  if (action.type === 'hydrateGroups') {
+    const groupsById = new Map<string, ProductGroup>();
+    for (const group of action.groups) {
+      if (!group || typeof group.id !== 'string' || !group.id.trim() ||
+          typeof group.name !== 'string' || !group.name.trim()) {
+        throw new Error('O catálogo devolveu um grupo inválido para o cabaz.');
+      }
+      groupsById.set(group.id, group);
+    }
+    let changed = false;
+    const next = lines.map((line) => {
+      if (line.kind !== 'group') return line;
+      const group = groupsById.get(line.groupId);
+      if (!group || group.name === line.groupName) return line;
+      changed = true;
+      return { ...line, groupName: group.name };
+    });
+    return changed ? next : lines;
+  }
+
+  if (action.type === 'hydrateProducts') {
+    const productsById = new Map<string, SupabaseProduct>();
+    for (const product of action.products) {
+      if (
+        !product || typeof product.id !== 'string' || !product.id.trim() ||
+        typeof product.name !== 'string' || !product.name.trim() ||
+        product.isDemo !== false || product.demoPriceCents !== null ||
+        product.active !== true
+      ) {
+        throw new Error('O catálogo devolveu um produto inválido para o cabaz.');
+      }
+      productsById.set(product.id, product);
+    }
+    let changed = false;
+    const next = lines.map((line) => {
+      if (line.kind === 'group') return line;
+      const product = productsById.get(line.productId);
+      if (!product) return line;
+      changed = true;
+      return { productId: line.productId, quantity: line.quantity, product };
+    });
+    return changed ? next : lines;
+  }
+
   if (action.type === 'replace') {
     const seenExact = new Set<string>();
     const seenGroups = new Set<string>();

@@ -51,6 +51,53 @@ test('produto remoto guarda snapshot e permite adicionar repetidamente, alterar 
   assert.equal(original[0].quantity, 1);
 });
 
+test('metadados recuperados atualizam linhas sem alterar identidades ou quantidades', () => {
+  const groupLine = {
+    kind: 'group',
+    groupId: 'group-milk-1l',
+    groupName: 'group-milk-1l',
+    brand: 'mimosa',
+    quantity: 3,
+  };
+  const initial = basketReducer([], {
+    type: 'replace',
+    lines: [
+      { productId: remote.id, quantity: 2, product: { ...remote, name: remote.id } },
+      groupLine,
+    ],
+  });
+  const withProduct = basketReducer(initial, {
+    type: 'hydrateProducts',
+    products: [{ ...remote, name: 'Leite meio-gordo', brand: 'Mimosa' }],
+  });
+  const withGroup = basketReducer(withProduct, {
+    type: 'hydrateGroups',
+    groups: [{
+      id: groupLine.groupId,
+      name: 'Leite meio-gordo 1 L',
+      productType: 'Leite',
+      variant: 'Meio-gordo',
+      packageQuantity: 1,
+      packageUnit: 'L',
+    }],
+  });
+
+  assert.equal(withGroup.length, 2);
+  assert.deepEqual(
+    withGroup.map((line) => line.quantity),
+    [2, 3],
+  );
+  assert.deepEqual(
+    withGroup.map((line) => line.kind === 'group'
+      ? [line.groupId, line.brand]
+      : [line.productId]),
+    [[remote.id], [groupLine.groupId, groupLine.brand]],
+  );
+  assert.equal(withGroup[0].product.name, 'Leite meio-gordo');
+  assert.equal(withGroup[0].product.demoPriceCents, null);
+  assert.equal(withGroup[1].groupName, 'Leite meio-gordo 1 L');
+});
+
 test('subtotal remoto e total misto sem preço são nulos, sem confundir nomes iguais', () => {
   const remoteLine = basketReducer([], { type: 'add', productId: remote.id, product: remote });
   const summary = summarizeBasket(remoteLine);

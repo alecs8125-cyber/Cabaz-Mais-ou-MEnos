@@ -126,6 +126,52 @@ export async function getProducts({
   }
 }
 
+export async function getProductsByIds(
+  productIds: readonly string[],
+  signal?: AbortSignal,
+): Promise<SupabaseProduct[]> {
+  const ids = [...new Set(productIds)];
+  if (ids.some((id) => typeof id !== 'string' || !id.trim())) {
+    throw new Error('A lista de identificadores de produtos é inválida.');
+  }
+  if (ids.length === 0) return [];
+
+  try {
+    return await withRequestSignal(async (requestSignal) => {
+      const products: SupabaseProduct[] = [];
+      for (let offset = 0; offset < ids.length; offset += 100) {
+        const batch = ids.slice(offset, offset + 100);
+        const { data, error } = await supabase
+          .schema('public')
+          .from('products')
+          .select(PRODUCT_COLUMNS)
+          .eq('active', true)
+          .in('id', batch)
+          .order('name', { ascending: true })
+          .order('id', { ascending: true })
+          .retry(false)
+          .abortSignal(requestSignal);
+
+        if (error) {
+          throw new Error(error.code ? `[${error.code}] ${error.message}` : error.message);
+        }
+        if (!Array.isArray(data)) {
+          throw new Error('O Supabase devolveu uma lista de produtos inválida.');
+        }
+        products.push(...data.map(readProduct));
+      }
+      return products;
+    }, signal);
+  } catch (cause) {
+    const message =
+      cause instanceof Error ? cause.message : 'Erro inesperado na ligação.';
+    throw new Error(
+      `Não foi possível recuperar os produtos do cabaz: ${message}`,
+      { cause },
+    );
+  }
+}
+
 export async function getProductCategories(signal?: AbortSignal): Promise<string[]> {
   try {
     return await withRequestSignal(async (requestSignal) => {

@@ -7,7 +7,7 @@ let respond = () => ({ data: [], error: null });
 
 function makeQuery() {
   const query = { operations: [] };
-  for (const method of ['select', 'eq', 'order', 'ilike', 'or', 'range', 'not', 'limit', 'gt', 'retry']) {
+  for (const method of ['select', 'eq', 'order', 'ilike', 'or', 'range', 'not', 'limit', 'gt', 'in', 'retry']) {
     query[method] = (...args) => {
       query.operations.push([method, ...args]);
       return query;
@@ -226,6 +226,71 @@ test('getProducts rejects malformed responses and inactive or invalid product ro
   await t.test('null row', async () => {
     setup(() => ({ data: [null], error: null, count: 1 }));
     await assert.rejects(service.getProducts(), /campos inválidos/);
+  });
+});
+
+test('getProductsByIds reads only requested active products and never includes price data', async () => {
+  const rows = [
+    product({ id: 'product-2', name: 'Second product' }),
+    product({ id: 'product-1', name: 'First product' }),
+  ];
+  setup(() => ({ data: rows, error: null }));
+
+  const products = await service.getProductsByIds(['product-2', 'product-1', 'product-2']);
+
+  assert.equal(calls.length, 1);
+  assert.deepEqual(operation(calls[0], 'schema'), ['schema', 'public']);
+  assert.deepEqual(operation(calls[0], 'from'), ['from', 'products']);
+  assert.deepEqual(operation(calls[0], 'select'), [
+    'select',
+    'id,name,brand,barcode,category,unit,active',
+  ]);
+  assert.deepEqual(operation(calls[0], 'in'), ['in', 'id', ['product-2', 'product-1']]);
+  assert.deepEqual(calls[0].operations.filter(([method]) => method === 'eq'), [
+    ['eq', 'active', true],
+  ]);
+  assert.deepEqual(calls[0].operations.filter(([method]) => method === 'order'), [
+    ['order', 'name', { ascending: true }],
+    ['order', 'id', { ascending: true }],
+  ]);
+  assert.deepEqual(operation(calls[0], 'retry'), ['retry', false]);
+  assert.ok(operation(calls[0], 'abortSignal')[1] instanceof AbortSignal);
+  assert.equal(products.length, 2);
+  assert.ok(products.every((item) => item.demoPriceCents === null));
+  assert.equal(Object.hasOwn(products[0], 'price'), false);
+});
+
+test('getProductsByIds batches long lists, skips empty lists, and rejects invalid rows', async (t) => {
+  await t.test('empty input makes no query', async () => {
+    setup(() => ({ data: [], error: null }));
+    assert.deepEqual(await service.getProductsByIds([]), []);
+    assert.equal(calls.length, 0);
+  });
+
+  await t.test('long lists are batched at 100 identifiers', async () => {
+    setup(() => ({ data: [], error: null }));
+    await service.getProductsByIds(Array.from({ length: 101 }, (_, index) => `id-${index}`));
+    assert.deepEqual(
+      calls.map((query) => operation(query, 'in')[2].length),
+      [100, 1],
+    );
+  });
+
+  await t.test('invalid identifier and malformed response reject explicitly', async () => {
+    setup(() => ({ data: [], error: null }));
+    await assert.rejects(service.getProductsByIds(['  ']), /identificadores.*inválida/);
+    assert.equal(calls.length, 0);
+
+    setup(() => ({ data: [product({ active: false })], error: null }));
+    await assert.rejects(service.getProductsByIds(['product-1']), /campos inválidos/);
+  });
+
+  await t.test('Supabase error is propagated without a local fallback', async () => {
+    setup(() => ({ data: null, error: { code: '42501', message: 'product lookup failed' } }));
+    await assert.rejects(
+      service.getProductsByIds(['product-1']),
+      /42501.*product lookup failed/,
+    );
   });
 });
 

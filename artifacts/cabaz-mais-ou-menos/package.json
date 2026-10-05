@@ -8,6 +8,7 @@
     "build": "node scripts/build.js",
     "serve": "node server/serve.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:active-basket": "tsc --ignoreConfig --module node16 --target es2022 --skipLibCheck --rootDir . --outDir .test-build data/demo-products.ts lib/products.ts lib/basket.ts lib/active-basket.ts && node --test tests/active-basket.test.cjs",
     "test:products": "tsc --ignoreConfig --module node16 --target es2022 --skipLibCheck --rootDir . --outDir .test-build data/demo-products.ts lib/products.ts lib/basket.ts && node --test tests/products.test.cjs",
     "test:saved-baskets": "tsc --ignoreConfig --types expo/types --module node16 --target es2022 --skipLibCheck --rootDir . --outDir .test-build data/demo-products.ts lib/product-types.ts lib/products.ts lib/basket.ts lib/saved-baskets.ts lib/comparison.ts && node --test tests/saved-baskets.test.cjs",
     "test:comparison": "tsc --ignoreConfig --types expo/types --module node16 --target es2022 --skipLibCheck --rootDir . --outDir .test-build lib/comparison.ts services/stores.ts services/prices.ts && node --test tests/comparison.test.cjs tests/supabase-comparison.test.cjs tests/supabase-prices.test.cjs tests/supabase-stores.test.cjs",
