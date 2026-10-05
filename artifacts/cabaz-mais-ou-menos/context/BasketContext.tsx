@@ -10,7 +10,7 @@ import React, {
   useState,
   type ReactNode,
 } from 'react';
-import { AppState } from 'react-native';
+import { Alert, AppState } from 'react-native';
 import {
   basketReducer,
   summarizeBasket,
@@ -26,10 +26,7 @@ import {
 } from '@/lib/active-basket';
 import { getDemoProduct } from '@/lib/products';
 import type { CatalogProduct } from '@/lib/product-types';
-import {
-  getProductGroupBrandLabels,
-  getProductGroups,
-} from '@/services/product-groups';
+import { getProductGroupCatalogMetadata, getProductGroups } from '@/services/product-groups';
 import { getProductsByIds } from '@/services/products';
 
 interface BasketContextValue {
@@ -49,6 +46,26 @@ interface BasketContextValue {
 }
 
 const BasketContext = createContext<BasketContextValue | null>(null);
+
+function describeBasketLine(line: BasketLine): string {
+  if (line.kind === 'group') {
+    const brand = line.brand === null ? 'Qualquer marca' : line.brandLabel ?? line.brand;
+    return `${line.groupName} — ${brand}`;
+  }
+  return line.product?.name ?? line.productId;
+}
+
+function notifyUnavailableLines(lines: readonly BasketLine[]) {
+  if (lines.length === 0) return;
+  const names = lines.map(describeBasketLine);
+  const details = names.length <= 4
+    ? names.join('\n')
+    : `${names.slice(0, 4).join('\n')}\n+ ${names.length - 4} outro(s)`;
+  Alert.alert(
+    'Itens removidos do cabaz',
+    `${names.length} ${names.length === 1 ? 'item já não está' : 'itens já não estão'} disponível(is) no catálogo e foram removido(s):\n${details}`,
+  );
+}
 
 // Cabaz ativo guardado neste dispositivo, independente da zona selecionada.
 export function BasketProvider({ children }: { children: ReactNode }) {
@@ -143,29 +160,62 @@ export function BasketProvider({ children }: { children: ReactNode }) {
 
       if (remoteProductIds.length > 0) {
         void getProductsByIds(remoteProductIds).then((products) => {
-          if (mounted && products.length > 0) {
-            dispatchBasketAction({ type: 'hydrateProducts', products });
-          }
+          if (!mounted) return;
+          const activeIds = new Set(products.map(({ id }) => id));
+          const unavailable = latestLinesRef.current.filter(
+            (line): line is Extract<BasketLine, { productId: string }> =>
+              line.kind !== 'group' &&
+              remoteProductIds.includes(line.productId) &&
+              !activeIds.has(line.productId),
+          );
+          dispatchBasketAction({
+            type: 'hydrateProducts',
+            products,
+            requestedProductIds: remoteProductIds,
+          });
+          notifyUnavailableLines(unavailable);
         }).catch((error: unknown) => {
           console.warn('Não foi possível atualizar os detalhes dos produtos do cabaz.', error);
         });
       }
       if (productGroupIds.length > 0) {
         void getProductGroups().then((groups) => {
-          if (mounted && groups.length > 0) {
-            dispatchBasketAction({ type: 'hydrateGroups', groups });
-          }
+          if (!mounted) return;
+          const activeGroupIds = new Set(groups.map(({ id }) => id));
+          const unavailable = latestLinesRef.current.filter(
+            (line): line is Extract<BasketLine, { kind: 'group' }> =>
+              line.kind === 'group' && !activeGroupIds.has(line.groupId),
+          );
+          dispatchBasketAction({ type: 'hydrateGroups', groups });
+          notifyUnavailableLines(unavailable);
         }).catch((error: unknown) => {
           console.warn('Não foi possível atualizar os detalhes dos grupos do cabaz.', error);
         });
       }
-      if (productGroupBrandIds.length > 0) {
-        void getProductGroupBrandLabels(productGroupBrandIds).then((brandLabels) => {
-          if (mounted && brandLabels.length > 0) {
-            dispatchBasketAction({ type: 'hydrateGroupBrandLabels', brandLabels });
-          }
+      if (productGroupIds.length > 0) {
+        const requestedGroupIds = [...new Set(productGroupIds)];
+        void getProductGroupCatalogMetadata(requestedGroupIds).then((metadata) => {
+          if (!mounted) return;
+          const availableGroupIds = new Set(metadata.availableGroupIds);
+          const brandIdentities = new Set(
+            metadata.brandLabels.map(({ groupId, brand }) => JSON.stringify([groupId, brand])),
+          );
+          const unavailable = latestLinesRef.current.filter(
+            (line): line is Extract<BasketLine, { kind: 'group' }> =>
+              line.kind === 'group' &&
+              requestedGroupIds.includes(line.groupId) &&
+              (!availableGroupIds.has(line.groupId) ||
+                (line.brand !== null &&
+                  !brandIdentities.has(JSON.stringify([line.groupId, line.brand])))),
+          );
+          dispatchBasketAction({
+            type: 'hydrateGroupCatalog',
+            requestedGroupIds,
+            metadata,
+          });
+          notifyUnavailableLines(unavailable);
         }).catch((error: unknown) => {
-          console.warn('Não foi possível atualizar os nomes das marcas do cabaz.', error);
+          console.warn('Não foi possível atualizar as marcas dos grupos do cabaz.', error);
         });
       }
       if (!appIsActive) flushLatest();

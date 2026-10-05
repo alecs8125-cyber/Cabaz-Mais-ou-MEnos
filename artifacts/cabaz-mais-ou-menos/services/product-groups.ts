@@ -3,6 +3,7 @@ import { normalizeProductGroupBrand } from '../lib/product-group-options';
 import type {
   ProductGroup,
   ProductGroupBrandLabel,
+  ProductGroupCatalogMetadata,
   ProductGroupMember,
 } from '../lib/product-types';
 
@@ -173,15 +174,17 @@ export async function getProductGroupMembers(
   }
 }
 
-export async function getProductGroupBrandLabels(
+export async function getProductGroupCatalogMetadata(
   groupIds: readonly string[],
   signal?: AbortSignal,
-): Promise<ProductGroupBrandLabel[]> {
+): Promise<ProductGroupCatalogMetadata> {
   const uniqueGroupIds = [...new Set(groupIds)];
   if (uniqueGroupIds.some((id) => typeof id !== 'string' || !id.trim())) {
     throw new Error('A lista de grupos para recuperar marcas é inválida.');
   }
-  if (uniqueGroupIds.length === 0) return [];
+  if (uniqueGroupIds.length === 0) {
+    return { availableGroupIds: [], brandLabels: [] };
+  }
 
   try {
     return await withRequestSignal(async (requestSignal) => {
@@ -238,7 +241,9 @@ export async function getProductGroupBrandLabels(
       }
 
       const productIds = [...groupIdsByProduct.keys()].sort();
-      if (productIds.length === 0) return [];
+      if (productIds.length === 0) {
+        return { availableGroupIds: [], brandLabels: [] };
+      }
       const requestedProductIds = new Set(productIds);
       const products: { id: string; name: string; brand: string | null }[] = [];
 
@@ -281,22 +286,46 @@ export async function getProductGroupBrandLabels(
       products.sort((a, b) =>
         a.name.localeCompare(b.name, 'pt-PT') || a.id.localeCompare(b.id),
       );
-      const labelsByIdentity = new Map<string, ProductGroupBrandLabel>();
+      const availableGroupIds = new Set<string>();
+      const labelsByIdentity = new Map<
+        string,
+        { groupId: string; brand: string; labels: Map<string, number> }
+      >();
       for (const product of products) {
+        const productGroupIds = groupIdsByProduct.get(product.id) ?? [];
+        for (const groupId of productGroupIds) availableGroupIds.add(groupId);
+
         const label = product.brand?.trim();
         const brand = normalizeProductGroupBrand(label);
         if (!brand || !label) continue;
 
-        for (const groupId of groupIdsByProduct.get(product.id) ?? []) {
+        for (const groupId of productGroupIds) {
           const identity = JSON.stringify([groupId, brand]);
-          if (!labelsByIdentity.has(identity)) {
-            labelsByIdentity.set(identity, { groupId, brand, label });
-          }
+          const entry = labelsByIdentity.get(identity) ?? {
+            groupId,
+            brand,
+            labels: new Map<string, number>(),
+          };
+          entry.labels.set(label, (entry.labels.get(label) ?? 0) + 1);
+          labelsByIdentity.set(identity, entry);
         }
       }
-      return [...labelsByIdentity.values()].sort((a, b) =>
-        a.groupId.localeCompare(b.groupId) || a.brand.localeCompare(b.brand),
-      );
+      const brandLabels = [...labelsByIdentity.values()]
+        .map(({ groupId, brand, labels }) => ({
+          groupId,
+          brand,
+          label: [...labels.entries()].sort(([leftLabel, leftCount], [rightLabel, rightCount]) =>
+            rightCount - leftCount ||
+            (leftLabel < rightLabel ? -1 : leftLabel > rightLabel ? 1 : 0),
+          )[0][0],
+        }))
+        .sort((a, b) =>
+          a.groupId.localeCompare(b.groupId) || a.brand.localeCompare(b.brand),
+        );
+      return {
+        availableGroupIds: [...availableGroupIds].sort(),
+        brandLabels,
+      };
     }, signal);
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : 'Erro inesperado na ligação.';

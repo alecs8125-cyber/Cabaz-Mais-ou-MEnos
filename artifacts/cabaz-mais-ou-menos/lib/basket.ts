@@ -1,7 +1,7 @@
 import type {
   CatalogProduct,
   ProductGroup,
-  ProductGroupBrandLabel,
+  ProductGroupCatalogMetadata,
   SupabaseProduct,
 } from './product-types';
 import { getDemoProduct } from './products';
@@ -44,12 +44,14 @@ export type BasketAction =
       groups: readonly ProductGroup[];
     }
   | {
-      type: 'hydrateGroupBrandLabels';
-      brandLabels: readonly ProductGroupBrandLabel[];
+      type: 'hydrateGroupCatalog';
+      requestedGroupIds: readonly string[];
+      metadata: ProductGroupCatalogMetadata;
     }
   | {
       type: 'hydrateProducts';
       products: readonly SupabaseProduct[];
+      requestedProductIds: readonly string[];
     }
   | {
       type: 'add' | 'remove' | 'increase' | 'decrease';
@@ -129,21 +131,43 @@ export function basketReducer(
       groupsById.set(group.id, group);
     }
     let changed = false;
-    const next = lines.map((line) => {
-      if (line.kind !== 'group') return line;
+    const next = lines.flatMap((line) => {
+      if (line.kind !== 'group') return [line];
       const group = groupsById.get(line.groupId);
-      if (!group || group.name === line.groupName) return line;
+      if (!group) {
+        changed = true;
+        return [];
+      }
+      if (group.name === line.groupName) return [line];
       changed = true;
-      return { ...line, groupName: group.name };
+      return [{ ...line, groupName: group.name }];
     });
     return changed ? next : lines;
   }
 
-  if (action.type === 'hydrateGroupBrandLabels') {
+  if (action.type === 'hydrateGroupCatalog') {
+    const requestedGroupIds = new Set(action.requestedGroupIds);
+    if (
+      requestedGroupIds.size !== action.requestedGroupIds.length ||
+      [...requestedGroupIds].some((id) => typeof id !== 'string' || !id.trim())
+    ) {
+      throw new Error('A lista de grupos para atualizar o cabaz é inválida.');
+    }
+    const availableGroupIds = new Set(action.metadata.availableGroupIds);
+    if (
+      availableGroupIds.size !== action.metadata.availableGroupIds.length ||
+      [...availableGroupIds].some((id) =>
+        typeof id !== 'string' || !requestedGroupIds.has(id),
+      )
+    ) {
+      throw new Error('O catálogo devolveu grupos disponíveis inválidos para o cabaz.');
+    }
+
     const labelsByIdentity = new Map<string, string>();
-    for (const entry of action.brandLabels) {
+    for (const entry of action.metadata.brandLabels) {
       if (
         !entry || typeof entry.groupId !== 'string' || !entry.groupId.trim() ||
+        !requestedGroupIds.has(entry.groupId) ||
         typeof entry.brand !== 'string' || !entry.brand.trim() ||
         typeof entry.label !== 'string' || !entry.label.trim()
       ) {
@@ -157,21 +181,38 @@ export function basketReducer(
     }
 
     let changed = false;
-    const next = lines.map((line) => {
-      if (line.kind !== 'group' || line.brand === null) return line;
+    const next = lines.flatMap((line) => {
+      if (line.kind !== 'group' || !requestedGroupIds.has(line.groupId)) return [line];
+      if (!availableGroupIds.has(line.groupId)) {
+        changed = true;
+        return [];
+      }
+      if (line.brand === null) return [line];
       const label = labelsByIdentity.get(JSON.stringify([line.groupId, line.brand]));
-      if (!label || label === line.brandLabel) return line;
+      if (!label) {
+        changed = true;
+        return [];
+      }
+      if (label === line.brandLabel) return [line];
       changed = true;
-      return { ...line, brandLabel: label };
+      return [{ ...line, brandLabel: label }];
     });
     return changed ? next : lines;
   }
 
   if (action.type === 'hydrateProducts') {
+    const requestedProductIds = new Set(action.requestedProductIds);
+    if (
+      requestedProductIds.size !== action.requestedProductIds.length ||
+      [...requestedProductIds].some((id) => typeof id !== 'string' || !id.trim())
+    ) {
+      throw new Error('A lista de produtos para atualizar o cabaz é inválida.');
+    }
     const productsById = new Map<string, SupabaseProduct>();
     for (const product of action.products) {
       if (
         !product || typeof product.id !== 'string' || !product.id.trim() ||
+        !requestedProductIds.has(product.id) ||
         typeof product.name !== 'string' || !product.name.trim() ||
         product.isDemo !== false || product.demoPriceCents !== null ||
         product.active !== true
@@ -181,12 +222,16 @@ export function basketReducer(
       productsById.set(product.id, product);
     }
     let changed = false;
-    const next = lines.map((line) => {
-      if (line.kind === 'group') return line;
+    const next = lines.flatMap((line) => {
+      if (line.kind === 'group') return [line];
       const product = productsById.get(line.productId);
-      if (!product) return line;
+      if (!product && requestedProductIds.has(line.productId)) {
+        changed = true;
+        return [];
+      }
+      if (!product) return [line];
       changed = true;
-      return { productId: line.productId, quantity: line.quantity, product };
+      return [{ productId: line.productId, quantity: line.quantity, product }];
     });
     return changed ? next : lines;
   }

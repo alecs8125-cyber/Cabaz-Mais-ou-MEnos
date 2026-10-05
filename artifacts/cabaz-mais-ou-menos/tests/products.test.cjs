@@ -69,6 +69,7 @@ test('metadados recuperados atualizam linhas sem alterar identidades ou quantida
   const withProduct = basketReducer(initial, {
     type: 'hydrateProducts',
     products: [{ ...remote, name: 'Leite meio-gordo', brand: 'Mimosa' }],
+    requestedProductIds: [remote.id],
   });
   const withGroup = basketReducer(withProduct, {
     type: 'hydrateGroups',
@@ -82,12 +83,16 @@ test('metadados recuperados atualizam linhas sem alterar identidades ou quantida
     }],
   });
   const withBrandLabel = basketReducer(withGroup, {
-    type: 'hydrateGroupBrandLabels',
-    brandLabels: [{
-      groupId: groupLine.groupId,
-      brand: groupLine.brand,
-      label: 'MIMOSA',
-    }],
+    type: 'hydrateGroupCatalog',
+    requestedGroupIds: [groupLine.groupId],
+    metadata: {
+      availableGroupIds: [groupLine.groupId],
+      brandLabels: [{
+        groupId: groupLine.groupId,
+        brand: groupLine.brand,
+        label: 'MIMOSA',
+      }],
+    },
   });
 
   assert.equal(withBrandLabel.length, 2);
@@ -106,6 +111,91 @@ test('metadados recuperados atualizam linhas sem alterar identidades ou quantida
   assert.equal(withBrandLabel[1].groupName, 'Leite meio-gordo 1 L');
   assert.equal(withBrandLabel[1].brandLabel, 'MIMOSA');
   assert.equal(getBasketItemBrandLabel(summarizeBasket([withBrandLabel[1]]).items[0]), 'MIMOSA');
+});
+
+test('respostas de catálogo válidas removem itens inativos, sem remover as linhas ainda disponíveis', () => {
+  const firstId = 'remote-active';
+  const removedId = 'remote-inactive';
+  const groupId = 'group-active';
+  const removedGroupId = 'group-deleted';
+  const lines = basketReducer([], {
+    type: 'replace',
+    lines: [
+      { productId: firstId, quantity: 2, product: { ...remote, id: firstId, name: firstId } },
+      { productId: removedId, quantity: 1, product: { ...remote, id: removedId, name: removedId } },
+      { kind: 'group', groupId, groupName: groupId, brand: 'mimosa', quantity: 3 },
+      { kind: 'group', groupId: removedGroupId, groupName: removedGroupId, brand: null, quantity: 1 },
+    ],
+  });
+  const productsReconciled = basketReducer(lines, {
+    type: 'hydrateProducts',
+    products: [{ ...remote, id: firstId, name: 'Produto ativo' }],
+    requestedProductIds: [firstId, removedId],
+  });
+  const groupsReconciled = basketReducer(productsReconciled, {
+    type: 'hydrateGroups',
+    groups: [{
+      id: groupId,
+      name: 'Grupo atual',
+      productType: 'Leite',
+      variant: 'Meio-gordo',
+      packageQuantity: 1,
+      packageUnit: 'L',
+    }],
+  });
+  const complete = basketReducer(groupsReconciled, {
+    type: 'hydrateGroupCatalog',
+    requestedGroupIds: [groupId, removedGroupId],
+    metadata: {
+      availableGroupIds: [groupId],
+      brandLabels: [{ groupId, brand: 'mimosa', label: 'Mimosa' }],
+    },
+  });
+
+  assert.deepEqual(complete.map((line) => line.kind === 'group'
+    ? [line.groupId, line.brand, line.quantity]
+    : [line.productId, line.quantity]), [
+    [firstId, 2],
+    [groupId, 'mimosa', 3],
+  ]);
+  assert.equal(complete[1].groupName, 'Grupo atual');
+  assert.equal(complete[1].brandLabel, 'Mimosa');
+});
+
+test('grupos ativos sem produtos e marcas já sem produtos ativos são removidos na reconciliação', () => {
+  const groupWithoutProducts = {
+    kind: 'group',
+    groupId: 'group-without-products',
+    groupName: 'Grupo sem produtos',
+    brand: null,
+    quantity: 1,
+  };
+  const unavailableBrand = {
+    kind: 'group',
+    groupId: 'group-has-other-brand',
+    groupName: 'Grupo com outra marca',
+    brand: 'mimosa',
+    quantity: 2,
+  };
+  const lines = basketReducer([], {
+    type: 'replace',
+    lines: [groupWithoutProducts, unavailableBrand],
+  });
+
+  const reconciled = basketReducer(lines, {
+    type: 'hydrateGroupCatalog',
+    requestedGroupIds: [groupWithoutProducts.groupId, unavailableBrand.groupId],
+    metadata: {
+      availableGroupIds: [unavailableBrand.groupId],
+      brandLabels: [{
+        groupId: unavailableBrand.groupId,
+        brand: 'continente',
+        label: 'Continente',
+      }],
+    },
+  });
+
+  assert.deepEqual(reconciled, []);
 });
 
 test('subtotal remoto e total misto sem preço são nulos, sem confundir nomes iguais', () => {

@@ -28,6 +28,11 @@ export interface ProductGroupBrandLabel {
   readonly label: string;
 }
 
+export interface ProductGroupCatalogMetadata {
+  readonly availableGroupIds: readonly string[];
+  readonly brandLabels: readonly ProductGroupBrandLabel[];
+}
+
 export interface ProductGroupMember {
   readonly id: string;
   readonly name: string;
