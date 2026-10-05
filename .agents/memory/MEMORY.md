@@ -12,3 +12,4 @@
 - [PostgREST store filter batching](postgrest-store-filter-batching.md) — broad manual regions can overflow a single store-ID price filter; chunk IDs while retaining online-store inclusion.
 - [Auchan price scope](auchan-price-scope.md) — pre-login Auchan prices refer only to postal code 2650-435; do not create a generic online store or write those prices.
 - [Auchan import sampling](auchan-price-scope.md) — sitemap page-request budgets are not product caps; count stable eligible products separately and keep commits capped at 20.
+- [GitHub API fast-forward](github-api-fast-forward.md) — preserve the commit message newline; verify the exact commit SHA and parent before a non-forced ref update.
