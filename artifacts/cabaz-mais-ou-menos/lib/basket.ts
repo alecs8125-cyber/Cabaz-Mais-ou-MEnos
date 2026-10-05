@@ -131,7 +131,7 @@ export function basketReducer(
       groupsById.set(group.id, group);
     }
     let changed = false;
-    const next = lines.flatMap((line) => {
+    const next = lines.flatMap<BasketLine>((line) => {
       if (line.kind !== 'group') return [line];
       const group = groupsById.get(line.groupId);
       if (!group) {
@@ -181,7 +181,7 @@ export function basketReducer(
     }
 
     let changed = false;
-    const next = lines.flatMap((line) => {
+    const next = lines.flatMap<BasketLine>((line) => {
       if (line.kind !== 'group' || !requestedGroupIds.has(line.groupId)) return [line];
       if (!availableGroupIds.has(line.groupId)) {
         changed = true;
@@ -222,7 +222,7 @@ export function basketReducer(
       productsById.set(product.id, product);
     }
     let changed = false;
-    const next = lines.flatMap((line) => {
+    const next = lines.flatMap<BasketLine>((line) => {
       if (line.kind === 'group') return [line];
       const product = productsById.get(line.productId);
       if (!product && requestedProductIds.has(line.productId)) {

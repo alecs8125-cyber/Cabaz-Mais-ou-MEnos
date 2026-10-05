@@ -26,6 +26,7 @@ import {
 } from '@/lib/active-basket';
 import { getDemoProduct } from '@/lib/products';
 import type { CatalogProduct } from '@/lib/product-types';
+import { retryReadOperation } from '@/lib/query-policy';
 import { getProductGroupCatalogMetadata, getProductGroups } from '@/services/product-groups';
 import { getProductsByIds } from '@/services/products';
 
@@ -61,9 +62,12 @@ function notifyUnavailableLines(lines: readonly BasketLine[]) {
   const details = names.length <= 4
     ? names.join('\n')
     : `${names.slice(0, 4).join('\n')}\n+ ${names.length - 4} outro(s)`;
+  const message = names.length === 1
+    ? '1 item já não está disponível e foi removido do cabaz.'
+    : `${names.length} itens já não estão disponíveis e foram removidos do cabaz.`;
   Alert.alert(
     'Itens removidos do cabaz',
-    `${names.length} ${names.length === 1 ? 'item já não está' : 'itens já não estão'} disponível(is) no catálogo e foram removido(s):\n${details}`,
+    `${message}\n${details}`,
   );
 }
 
@@ -93,6 +97,7 @@ export function BasketProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
+    const catalogController = new AbortController();
     let appIsActive = AppState.currentState === 'active';
     const flushLatest = () => {
       if (isHydratedRef.current && canPersistRef.current) {
@@ -112,11 +117,9 @@ export function BasketProvider({ children }: { children: ReactNode }) {
       writer.setBaseline(loaded.needsRewrite ? null : loaded.serialized);
       const remoteProductIds: string[] = [];
       const productGroupIds: string[] = [];
-      const productGroupBrandIds: string[] = [];
       const restoredLines: BasketLine[] = loaded.lines.map((line) => {
         if (line.kind === 'group') {
           productGroupIds.push(line.groupId);
-          if (line.brand !== null) productGroupBrandIds.push(line.groupId);
           return {
             kind: 'group',
             groupId: line.groupId,
@@ -159,7 +162,10 @@ export function BasketProvider({ children }: { children: ReactNode }) {
       setIsHydrated(true);
 
       if (remoteProductIds.length > 0) {
-        void getProductsByIds(remoteProductIds).then((products) => {
+        void retryReadOperation(
+          () => getProductsByIds(remoteProductIds, catalogController.signal),
+          catalogController.signal,
+        ).then((products) => {
           if (!mounted) return;
           const activeIds = new Set(products.map(({ id }) => id));
           const unavailable = latestLinesRef.current.filter(
@@ -179,7 +185,10 @@ export function BasketProvider({ children }: { children: ReactNode }) {
         });
       }
       if (productGroupIds.length > 0) {
-        void getProductGroups().then((groups) => {
+        void retryReadOperation(
+          () => getProductGroups(catalogController.signal),
+          catalogController.signal,
+        ).then((groups) => {
           if (!mounted) return;
           const activeGroupIds = new Set(groups.map(({ id }) => id));
           const unavailable = latestLinesRef.current.filter(
@@ -194,7 +203,10 @@ export function BasketProvider({ children }: { children: ReactNode }) {
       }
       if (productGroupIds.length > 0) {
         const requestedGroupIds = [...new Set(productGroupIds)];
-        void getProductGroupCatalogMetadata(requestedGroupIds).then((metadata) => {
+        void retryReadOperation(
+          () => getProductGroupCatalogMetadata(requestedGroupIds, catalogController.signal),
+          catalogController.signal,
+        ).then((metadata) => {
           if (!mounted) return;
           const availableGroupIds = new Set(metadata.availableGroupIds);
           const brandIdentities = new Set(
@@ -235,6 +247,7 @@ export function BasketProvider({ children }: { children: ReactNode }) {
 
     return () => {
       mounted = false;
+      catalogController.abort();
       appStateSubscription.remove();
       flushLatest();
     };

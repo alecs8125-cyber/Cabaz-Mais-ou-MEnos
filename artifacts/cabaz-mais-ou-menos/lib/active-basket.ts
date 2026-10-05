@@ -1,4 +1,5 @@
 import type { BasketLine } from './basket';
+import { normalizeProductGroupBrand } from './product-group-options';
 
 export const ACTIVE_BASKET_STORAGE_KEY = 'cabaz-mais-ou-menos:active-basket:v1';
 export const ACTIVE_BASKET_SCHEMA_VERSION = 1;
@@ -75,7 +76,10 @@ function parseActiveBasketDocument(serialized: string): PersistedActiveBasketLin
       throw new Error('O cabaz ativo guardado contém um grupo inválido.');
     }
 
-    const identity = JSON.stringify([entry.groupId, entry.brand]);
+    const brand = entry.brand === null
+      ? null
+      : normalizeProductGroupBrand(entry.brand);
+    const identity = JSON.stringify([entry.groupId, brand]);
     if (groupIds.has(identity)) {
       throw new Error('O cabaz ativo guardado contém um grupo repetido.');
     }
@@ -83,7 +87,7 @@ function parseActiveBasketDocument(serialized: string): PersistedActiveBasketLin
     return {
       kind: 'group',
       groupId: entry.groupId,
-      brand: entry.brand,
+      brand,
       quantity: entry.quantity,
     };
   });

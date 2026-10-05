@@ -32,10 +32,10 @@ function ProductCatalogContent({ visible, onClose }: CatalogProps) {
   const [lastAdded, setLastAdded] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<CatalogProduct | null>(null);
   const catalog = useProductCatalog(visible, query);
-  // A lista local só aparece quando a leitura remota falha, nunca quando o resultado é vazio.
+  // A lista local só aparece quando a leitura remota falha sem uma resposta em cache.
   const results: readonly CatalogProduct[] = catalog.loading
     ? []
-    : catalog.error ? searchProducts(query) : catalog.products;
+    : catalog.error && !catalog.hasCachedData ? searchProducts(query) : catalog.products;
   const qtyById = useMemo(() => {
     const m: Record<string, number> = {};
     items.forEach((i) => {
@@ -128,10 +128,18 @@ function ProductCatalogContent({ visible, onClose }: CatalogProps) {
             </Pressable>
           </View>
           <DemoPriceBadge
-            label={catalog.error ? undefined : 'Catálogo de produtos'}
-            detail={catalog.error
-              ? 'Produtos, marcas e preços fictícios, só para experimentar.'
-              : 'Preços ainda não disponíveis para estes produtos.'}
+            label={catalog.usingDemoFallback
+              ? 'Catálogo de demonstração'
+              : catalog.error
+                ? 'Catálogo guardado'
+                : catalog.showingCachedData ? 'A atualizar catálogo' : 'Catálogo de produtos'}
+            detail={catalog.usingDemoFallback
+              ? 'A ligação ao catálogo real falhou. A lista abaixo é fictícia e serve apenas para experimentar.'
+              : catalog.error
+                ? 'Sem ligação ao catálogo. A última lista guardada pode já não estar atualizada.'
+                : catalog.showingCachedData
+                  ? 'A mostrar a última lista guardada enquanto confirmamos o catálogo atual.'
+                : 'Preços ainda não disponíveis para estes produtos.'}
           />
           <View style={[styles.search, { backgroundColor: c.card, borderColor: c.input, borderRadius: c.radius - 4 }]}>
             <Feather name="search" size={18} color={c.mutedForeground} />
@@ -180,8 +188,15 @@ function ProductCatalogContent({ visible, onClose }: CatalogProps) {
             <View style={styles.empty} accessibilityLiveRegion="polite">
               <Feather name="alert-circle" size={28} color={c.tomato} />
               <Text testID="product-search-error" style={[styles.emptyTitle, { color: c.foreground }]}>
-                Não foi possível carregar os produtos. Tenta novamente.
+                {catalog.hasCachedData
+                  ? 'Sem ligação. A mostrar a última lista guardada; alguns produtos podem já não estar ativos.'
+                  : 'Não foi possível carregar o catálogo real. A lista abaixo é apenas de demonstração.'}
               </Text>
+              {catalog.hasCachedData && catalog.dataUpdatedAt > 0 ? (
+                <Text style={[styles.emptyBody, { color: c.mutedForeground }]}>
+                  Lista guardada em {new Date(catalog.dataUpdatedAt).toLocaleString('pt-PT')}.
+                </Text>
+              ) : null}
               <Pressable
                 testID="retry-product-search"
                 accessibilityRole="button"
@@ -202,7 +217,11 @@ function ProductCatalogContent({ visible, onClose }: CatalogProps) {
                   <Text style={[styles.emptyTitle, { color: c.foreground }]}>A carregar produtos…</Text>
                 </>
               ) : catalog.error ? (
-                <Text style={[styles.emptyBody, { color: c.mutedForeground }]}>Sem produtos de demonstração para esta pesquisa.</Text>
+                <Text style={[styles.emptyBody, { color: c.mutedForeground }]}>
+                  {catalog.hasCachedData
+                    ? 'Não há produtos guardados para esta pesquisa.'
+                    : 'Não há produtos de demonstração para esta pesquisa.'}
+                </Text>
               ) : (
                 <>
                   <Feather name="search" size={28} color={c.primary} />

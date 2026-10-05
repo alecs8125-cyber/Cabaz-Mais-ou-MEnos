@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getProductCategories, getProducts } from '@/services/products';
+import { readQueryRetryDelay, shouldRetryReadQuery } from '@/lib/query-policy';
 
 const PRODUCTS_KEY = ['supabase-product-search'] as const;
 
@@ -18,8 +19,7 @@ export function useProductCatalog(visible: boolean, query: string) {
   useEffect(() => {
     if (!visible) {
       void client.cancelQueries({ queryKey: PRODUCTS_KEY });
-      // Ao reabrir, pedir a primeira página atual, sem refazer páginas antigas.
-      client.removeQueries({ queryKey: PRODUCTS_KEY });
+      // Keep the last successful page for offline browsing when the catalog reopens.
     }
   }, [client, visible]);
 
@@ -34,19 +34,26 @@ export function useProductCatalog(visible: boolean, query: string) {
     getNextPageParam: (page) => page.nextOffset ?? undefined,
     enabled: visible && !isDebouncing,
     staleTime: 0,
-    gcTime: 60000,
+    gcTime: 5 * 60 * 1000,
     networkMode: 'always',
-    retry: false,
+    retry: shouldRetryReadQuery,
+    retryDelay: readQueryRetryDelay,
+    refetchOnReconnect: true,
     refetchOnWindowFocus: false,
   });
 
   const error = productsQuery.isFetchNextPageError ? null : productsQuery.error;
-  const loading = isDebouncing || productsQuery.isPending || productsQuery.isRefetching;
+  const hasCachedData = productsQuery.data !== undefined;
+  const loading = isDebouncing || (!hasCachedData && (productsQuery.isPending || productsQuery.isFetching));
 
   return {
-    products: loading || error ? [] : productsQuery.data?.pages.flatMap((page) => page.products) ?? [],
+    products: isDebouncing ? [] : productsQuery.data?.pages.flatMap((page) => page.products) ?? [],
     loading,
     error,
+    hasCachedData,
+    usingDemoFallback: Boolean(error && !hasCachedData),
+    dataUpdatedAt: productsQuery.dataUpdatedAt,
+    showingCachedData: hasCachedData && (Boolean(error) || productsQuery.isFetching),
     retry: () => {
       void productsQuery.refetch();
     },

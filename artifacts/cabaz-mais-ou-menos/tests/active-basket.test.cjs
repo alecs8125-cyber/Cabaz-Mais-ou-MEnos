@@ -103,6 +103,13 @@ test('migra com segurança campos antigos extra e reserializa apenas os campos p
       quantity: 1,
       name: 'Produto remoto',
       demoPriceCents: 249,
+    }, {
+      kind: 'group',
+      groupId: 'group-legacy',
+      groupName: 'Nome antigo do grupo',
+      brand: 'MIMOSA',
+      brandLabel: 'Etiqueta antiga',
+      quantity: 2,
     }],
   }));
   storage.values.set('cabaz-mais-ou-menos:saved-baskets:v1', 'named-baskets-stay-untouched');
@@ -110,13 +117,15 @@ test('migra com segurança campos antigos extra e reserializa apenas os campos p
   const loaded = await loadActiveBasket(storage);
 
   assert.equal(loaded.needsRewrite, true);
-  assert.deepEqual(loaded.lines, [{ kind: 'exact', productId: 'remote-legacy', quantity: 1 }]);
+  assert.deepEqual(loaded.lines, [
+    { kind: 'exact', productId: 'remote-legacy', quantity: 1 },
+    { kind: 'group', groupId: 'group-legacy', brand: 'mimosa', quantity: 2 },
+  ]);
   const sanitized = JSON.parse(serializeActiveBasket(loaded.lines));
-  assert.deepEqual(sanitized.lines[0], {
-    kind: 'exact',
-    productId: 'remote-legacy',
-    quantity: 1,
-  });
+  assert.deepEqual(sanitized.lines, [
+    { kind: 'exact', productId: 'remote-legacy', quantity: 1 },
+    { kind: 'group', groupId: 'group-legacy', brand: 'mimosa', quantity: 2 },
+  ]);
   assert.equal(storage.values.get('cabaz-mais-ou-menos:saved-baskets:v1'), 'named-baskets-stay-untouched');
 });
 

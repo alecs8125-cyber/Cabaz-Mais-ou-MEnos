@@ -31,6 +31,7 @@ import {
 import { getProductCategories, getProducts } from '@/services/products';
 import { getProductGroupMembers, getProductGroups } from '@/services/product-groups';
 import { mergeUniqueProductPages } from '@/lib/product-pages';
+import { readQueryRetryDelay, shouldRetryReadQuery } from '@/lib/query-policy';
 import type { CatalogProduct } from '@/lib/product-types';
 
 const PRODUCTS_KEY = ['home-products'] as const;
@@ -77,7 +78,9 @@ function HomeContent() {
     queryKey: PRODUCT_GROUPS_KEY,
     queryFn: ({ signal }) => getProductGroups(signal),
     staleTime: 60000,
-    retry: false,
+    retry: shouldRetryReadQuery,
+    retryDelay: readQueryRetryDelay,
+    refetchOnReconnect: true,
     refetchOnWindowFocus: false,
     networkMode: 'always',
   });
@@ -89,7 +92,9 @@ function HomeContent() {
     },
     enabled: selectedGroupId !== null,
     staleTime: 60000,
-    retry: false,
+    retry: shouldRetryReadQuery,
+    retryDelay: readQueryRetryDelay,
+    refetchOnReconnect: true,
     refetchOnWindowFocus: false,
     networkMode: 'always',
   });
@@ -97,7 +102,9 @@ function HomeContent() {
     queryKey: CATEGORIES_KEY,
     queryFn: ({ signal }) => getProductCategories(signal),
     staleTime: 60000,
-    retry: false,
+    retry: shouldRetryReadQuery,
+    retryDelay: readQueryRetryDelay,
+    refetchOnReconnect: true,
     refetchOnWindowFocus: false,
     networkMode: 'always',
   });
@@ -114,7 +121,9 @@ function HomeContent() {
     enabled: !isDebouncing,
     staleTime: 0,
     gcTime: 60000,
-    retry: false,
+    retry: shouldRetryReadQuery,
+    retryDelay: readQueryRetryDelay,
+    refetchOnReconnect: true,
     refetchOnWindowFocus: false,
     networkMode: 'always',
   });
@@ -142,12 +151,13 @@ function HomeContent() {
     return () => clearTimeout(timeout);
   }, [normalizedQuery]);
   const productsError = productsQuery.isFetchNextPageError ? null : productsQuery.error;
-  const productsLoading = isDebouncing || productsQuery.isPending || productsQuery.isRefetching;
+  const productsLoading = isDebouncing ||
+    (!productsQuery.data && (productsQuery.isPending || productsQuery.isFetching));
+  const showingCachedProducts = !isDebouncing && Boolean(productsQuery.data) &&
+    (Boolean(productsError) || productsQuery.isRefetching);
   const productsFromServer = useMemo(
-    () => productsLoading || productsError
-      ? []
-      : mergeUniqueProductPages(productsQuery.data?.pages ?? []),
-    [productsError, productsLoading, productsQuery.data],
+    () => isDebouncing ? [] : mergeUniqueProductPages(productsQuery.data?.pages ?? []),
+    [isDebouncing, productsQuery.data],
   );
   const quantities = useMemo(() => {
     const result: Record<string, number> = {};
@@ -342,6 +352,20 @@ function HomeContent() {
           </View>
 
           <View style={[styles.productsCard, { backgroundColor: c.card, borderColor: c.border }]}>
+            {productGroupsQuery.error && productGroupsQuery.data ? (
+              <View testID="home-product-groups-cached-warning" style={styles.state}>
+                <Text style={[styles.stateBody, { color: c.mutedForeground }]}>
+                  Sem ligação. Os grupos guardados podem já não estar atualizados.
+                </Text>
+                <Pressable
+                  testID="retry-home-cached-product-groups"
+                  accessibilityRole="button"
+                  onPress={() => { void productGroupsQuery.refetch(); }}
+                >
+                  <Text style={[styles.retryText, { color: c.primary }]}>Tentar novamente</Text>
+                </Pressable>
+              </View>
+            ) : null}
             {productGroupsQuery.isPending && !productGroupsQuery.data ? (
               <View testID="home-product-groups-loading" style={styles.groupLoading}>
                 <ActivityIndicator size="small" color={c.primary} />
@@ -509,6 +533,20 @@ function HomeContent() {
                     style={styles.groupBrandSection}
                   >
                     <Text style={[styles.groupStepLabel, { color: c.foreground }]}>Escolhe a marca</Text>
+                    {productGroupMembersQuery.error && productGroupMembersQuery.data ? (
+                      <View testID="home-group-brands-cached-warning" style={styles.groupBrandState}>
+                        <Text style={[styles.stateBody, { color: c.mutedForeground }]}>
+                          Sem ligação. As marcas guardadas podem já não estar atualizadas.
+                        </Text>
+                        <Pressable
+                          testID="retry-home-cached-group-brands"
+                          accessibilityRole="button"
+                          onPress={() => { void productGroupMembersQuery.refetch(); }}
+                        >
+                          <Text style={[styles.retryText, { color: c.primary }]}>Tentar novamente</Text>
+                        </Pressable>
+                      </View>
+                    ) : null}
                     {productGroupMembersQuery.isPending && !productGroupMembersQuery.data ? (
                       <View testID="home-group-brands-loading" style={styles.groupLoading}>
                         <ActivityIndicator size="small" color={c.primary} />
@@ -675,11 +713,25 @@ function HomeContent() {
                 Produtos reais do catálogo. Preços ainda não disponíveis.
               </Text>
             </View>
+            {showingCachedProducts ? (
+              <View testID="home-products-cached-warning" style={styles.categoryError}>
+                <Text style={[styles.categoryErrorText, { color: c.mutedForeground }]}>
+                  Sem ligação ao catálogo. A última lista guardada ({new Date(productsQuery.dataUpdatedAt).toLocaleString('pt-PT')}) pode incluir produtos já inativos.
+                </Text>
+                <Pressable
+                  testID="retry-home-cached-products"
+                  accessibilityRole="button"
+                  onPress={() => { void productsQuery.refetch(); }}
+                >
+                  <Text style={[styles.retryText, { color: c.primary }]}>Tentar novamente</Text>
+                </Pressable>
+              </View>
+            ) : null}
             {productsLoading ? (
               <View>
                 {[0, 1, 2, 3].map((item) => <ProductSkeleton key={item} color={c.border} muted={c.muted} />)}
               </View>
-            ) : productsError ? (
+            ) : productsError && !productsQuery.data ? (
               <View style={styles.state}>
                 <View style={[styles.stateIcon, { backgroundColor: c.muted }]}>
                   <Feather name="wifi-off" size={21} color={c.tomato} />

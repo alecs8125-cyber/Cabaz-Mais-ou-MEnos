@@ -7,6 +7,7 @@ import { useColors } from '@/hooks/useColors';
 import { formatDemoPrice } from '@/lib/products';
 import type { CatalogProduct } from '@/lib/product-types';
 import { getProductPriceHistory } from '@/services/price-history';
+import { readQueryRetryDelay, shouldRetryReadQuery } from '@/lib/query-policy';
 
 interface ProductPriceHistoryProps {
   product: CatalogProduct;
@@ -29,7 +30,9 @@ export function ProductPriceHistory({
     staleTime: 60000,
     gcTime: 60000,
     networkMode: 'always',
-    retry: false,
+    retry: shouldRetryReadQuery,
+    retryDelay: readQueryRetryDelay,
+    refetchOnReconnect: true,
     refetchOnWindowFocus: false,
   });
 
@@ -67,10 +70,10 @@ export function ProductPriceHistory({
             <ActivityIndicator color={c.primary} />
             <Text style={[styles.message, { color: c.mutedForeground }]}>A carregar histórico…</Text>
           </View>
-        ) : history.error ? (
+        ) : history.error && (!history.data || history.data.length === 0) ? (
           <View style={styles.messageBlock} testID="product-price-history-error">
             <Text style={[styles.message, { color: c.tomato }]}>
-              Não foi possível carregar o histórico de preços.
+              Não foi possível carregar o histórico. Verifica a ligação e tenta novamente.
             </Text>
             <Button
               testID="retry-product-price-history"
@@ -78,13 +81,29 @@ export function ProductPriceHistory({
               onPress={() => void history.refetch()}
             />
           </View>
-        ) : history.data.length === 0 ? (
+        ) : history.data?.length === 0 ? (
           <Text testID="product-price-history-empty" style={[styles.message, { color: c.mutedForeground }]}>
             Não existem dados históricos suficientes.
           </Text>
         ) : (
           <View style={styles.entries}>
-            {history.data.map((entry, index) => (
+            {history.error ? (
+              <View testID="product-price-history-cached-warning" style={styles.messageBlock}>
+                <Text style={[styles.message, { color: c.tomato }]}>
+                  Sem ligação. A mostrar o histórico guardado, atualizado pela última vez em{' '}
+                  {new Date(history.dataUpdatedAt).toLocaleString('pt-PT')}.
+                </Text>
+                <Button
+                  testID="retry-product-price-history-cached"
+                  label="Tentar novamente"
+                  onPress={() => void history.refetch()}
+                />
+              </View>
+            ) : null}
+            <Text style={[styles.message, { color: c.mutedForeground }]}>
+              Estes valores são históricos e não representam preços atuais.
+            </Text>
+            {(history.data ?? []).map((entry, index) => (
               <View
                 key={`${entry.capturedAt}-${entry.storeName}-${index}`}
                 testID={`product-price-history-entry-${index}`}

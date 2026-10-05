@@ -24,6 +24,7 @@ import {
 } from '@/lib/comparison';
 import { getProductGroupMembers } from '@/services/product-groups';
 import { getComparisonData } from '@/services/prices';
+import { readQueryRetryDelay, shouldRetryReadQuery } from '@/lib/query-policy';
 
 const EMPTY_GROUP_MEMBERS: ProductGroupMembersById = {};
 
@@ -79,7 +80,9 @@ function CompararContent() {
     staleTime: 60000,
     gcTime: 60000,
     networkMode: 'always',
-    retry: false,
+    retry: shouldRetryReadQuery,
+    retryDelay: readQueryRetryDelay,
+    refetchOnReconnect: true,
     refetchOnWindowFocus: false,
   });
   const groupMembersById = groupMembersQuery.data ?? EMPTY_GROUP_MEMBERS;
@@ -108,7 +111,9 @@ function CompararContent() {
     staleTime: 0,
     gcTime: 60000,
     networkMode: 'always',
-    retry: false,
+    retry: shouldRetryReadQuery,
+    retryDelay: readQueryRetryDelay,
+    refetchOnReconnect: true,
     refetchOnWindowFocus: false,
   });
   const focusedOnce = useRef(false);
@@ -139,7 +144,7 @@ function CompararContent() {
       if (now > nextPriceExpiry) void pricesQuery.refetch();
     }, Math.min(delay, 2_147_000_000));
     return () => clearTimeout(timer);
-  }, [comparisonNow, nextPriceExpiry, pricesQuery.refetch]);
+  }, [nextPriceExpiry, pricesQuery.refetch]);
   const nowForComparison = Math.max(comparisonNow, Date.now());
   const results = useMemo(
     () => {
@@ -165,6 +170,10 @@ function CompararContent() {
     (hasGroupChoices && groupMembersQuery.isFetching) ||
     ((!hasGroupChoices || groupMembersQuery.data !== undefined) &&
       (pricesQuery.isPending || pricesQuery.isFetching));
+  const visibleSelectedResult =
+    loading || pricesQuery.error || groupMembersQuery.error || !selectedResult
+      ? null
+      : results.find((result) => result.storeId === selectedResult.storeId) ?? null;
 
   return (
     <>
@@ -234,8 +243,10 @@ function CompararContent() {
                 icon="alert-circle"
                 eyebrow="Erro de ligação"
                 title="Não foi possível comparar os preços"
-                body={pricesQuery.error.message}
-                note="Os totais não foram calculados com dados incompletos."
+                body={pricesQuery.error instanceof Error
+                  ? pricesQuery.error.message
+                  : 'O serviço de preços devolveu um erro inesperado.'}
+                note="Preços guardados não são mostrados como atuais. Volta a tentar quando a ligação estiver disponível."
               />
               <Button testID="comparison-retry" label="Tentar novamente" onPress={() => void pricesQuery.refetch()} />
             </View>
@@ -269,7 +280,7 @@ function CompararContent() {
       </View>
     </ScrollView>
     <ComparisonDetailModal
-      result={selectedResult}
+      result={visibleSelectedResult}
       onClose={() => setSelectedResult(null)}
     />
     </>

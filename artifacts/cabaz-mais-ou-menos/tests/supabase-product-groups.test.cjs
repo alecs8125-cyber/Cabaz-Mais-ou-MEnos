@@ -238,7 +238,7 @@ test('group member reads report membership, product, and malformed-row errors', 
   });
 });
 
-test('group brand labels resolve normalized identities from active products without price fields', async () => {
+test('group metadata resolves current brands and active linked products without price fields', async () => {
   setup((query) => {
     if (operation(query, 'from')[1] === 'product_group_items') {
       return {
@@ -259,12 +259,19 @@ test('group brand labels resolve normalized identities from active products with
     };
   });
 
-  const labels = await groupService.getProductGroupBrandLabels(['group-b', 'group-a', 'group-a']);
+  const metadata = await groupService.getProductGroupCatalogMetadata([
+    'group-b',
+    'group-a',
+    'group-a',
+  ]);
 
-  assert.deepEqual(labels, [
+  assert.deepEqual(metadata, {
+    availableGroupIds: ['group-a', 'group-b'],
+    brandLabels: [
     { groupId: 'group-a', brand: 'mimosa', label: 'MIMOSA' },
     { groupId: 'group-b', brand: 'mimosa', label: 'MIMOSA' },
-  ]);
+    ],
+  });
   assert.equal(calls.length, 2);
   assert.deepEqual(calls.map((query) => operation(query, 'from')[1]), [
     'product_group_items',
@@ -280,17 +287,57 @@ test('group brand labels resolve normalized identities from active products with
   }
 });
 
-test('group brand lookup skips empty input, batches IDs, and propagates invalid responses', async (t) => {
+test('group metadata omits deactivated products while retaining valid unbranded active members', async () => {
+  setup((query) => {
+    if (operation(query, 'from')[1] === 'product_group_items') {
+      return {
+        data: [
+          { group_id: 'group-no-longer-available', product_id: 'product-inactive' },
+          { group_id: 'group-current', product_id: 'product-active-unbranded' },
+        ],
+        error: null,
+      };
+    }
+    return {
+      data: [{
+        id: 'product-active-unbranded',
+        name: 'Produto sem marca',
+        brand: null,
+      }],
+      error: null,
+    };
+  });
+
+  const metadata = await groupService.getProductGroupCatalogMetadata([
+    'group-no-longer-available',
+    'group-current',
+  ]);
+
+  assert.deepEqual(metadata, {
+    availableGroupIds: ['group-current'],
+    brandLabels: [],
+  });
+  assert.deepEqual(operation(calls[1], 'select'), ['select', 'id,name,brand']);
+  assert.deepEqual(operation(calls[1], 'eq'), ['eq', 'active', true]);
+});
+
+test('group metadata skips empty input, batches IDs, and propagates invalid responses', async (t) => {
   await t.test('empty input makes no query', async () => {
     setup(() => ({ data: [], error: null }));
-    assert.deepEqual(await groupService.getProductGroupBrandLabels([]), []);
+    assert.deepEqual(await groupService.getProductGroupCatalogMetadata([]), {
+      availableGroupIds: [],
+      brandLabels: [],
+    });
     assert.equal(calls.length, 0);
   });
 
   await t.test('long ID lists are batched', async () => {
     setup(() => ({ data: [], error: null }));
     const ids = Array.from({ length: 101 }, (_, index) => `group-${index}`);
-    assert.deepEqual(await groupService.getProductGroupBrandLabels(ids), []);
+    assert.deepEqual(await groupService.getProductGroupCatalogMetadata(ids), {
+      availableGroupIds: [],
+      brandLabels: [],
+    });
     assert.equal(calls.length, 2);
     assert.deepEqual(operation(calls[0], 'in'), ['in', 'group_id', ids.slice(0, 100)]);
     assert.deepEqual(operation(calls[1], 'in'), ['in', 'group_id', ids.slice(100)]);
@@ -299,7 +346,7 @@ test('group brand lookup skips empty input, batches IDs, and propagates invalid 
   await t.test('malformed membership row rejects explicitly', async () => {
     setup(() => ({ data: [{ group_id: 'group-1', product_id: null }], error: null }));
     await assert.rejects(
-      groupService.getProductGroupBrandLabels(['group-1']),
+      groupService.getProductGroupCatalogMetadata(['group-1']),
       /relação de grupo inválida/,
     );
   });
@@ -309,7 +356,7 @@ test('group brand lookup skips empty input, batches IDs, and propagates invalid 
       ? { data: [{ group_id: 'group-1', product_id: 'product-1' }], error: null }
       : { data: null, error: { code: '42501', message: 'brand lookup denied' } });
     await assert.rejects(
-      groupService.getProductGroupBrandLabels(['group-1']),
+      groupService.getProductGroupCatalogMetadata(['group-1']),
       /42501.*brand lookup denied/,
     );
   });
