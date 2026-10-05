@@ -1,0 +1,57 @@
+name: Cabaz quality
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cabaz-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Typecheck and offline-safe tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.1
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck Cabaz
+        run: pnpm --filter @workspace/cabaz-mais-ou-menos run typecheck
+
+      - name: Run deterministic Cabaz tests
+        run: |
+          set -euo pipefail
+          for script in \
+            test:active-basket \
+            test:products \
+            test:query-policy \
+            test:saved-baskets \
+            test:comparison \
+            test:supabase-products \
+            test:supabase-product-groups
+          do
+            pnpm --filter @workspace/cabaz-mais-ou-menos run "$script"
+          done
