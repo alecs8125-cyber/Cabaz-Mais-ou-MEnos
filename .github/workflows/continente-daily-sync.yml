@@ -1,8 +1,11 @@
 name: Continente daily sync
 
 on:
+  push:
+    paths:
+      - ".github/workflows/continente-daily-sync.yml"
   schedule:
-    - cron: "0 5 * * *"
+    - cron: "17 5 * * *"
       timezone: "Europe/Lisbon"
   workflow_dispatch:
     inputs:
