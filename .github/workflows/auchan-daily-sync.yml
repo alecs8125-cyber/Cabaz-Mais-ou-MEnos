@@ -1,8 +1,11 @@
 name: Auchan daily sync
 
 on:
+  push:
+    paths:
+      - ".github/workflows/auchan-daily-sync.yml"
   schedule:
-    - cron: "20 5 * * *"
+    - cron: "37 5 * * *"
       timezone: "Europe/Lisbon"
   workflow_dispatch:
     inputs:
