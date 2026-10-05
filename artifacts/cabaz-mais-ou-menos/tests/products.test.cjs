@@ -81,21 +81,31 @@ test('metadados recuperados atualizam linhas sem alterar identidades ou quantida
       packageUnit: 'L',
     }],
   });
+  const withBrandLabel = basketReducer(withGroup, {
+    type: 'hydrateGroupBrandLabels',
+    brandLabels: [{
+      groupId: groupLine.groupId,
+      brand: groupLine.brand,
+      label: 'MIMOSA',
+    }],
+  });
 
-  assert.equal(withGroup.length, 2);
+  assert.equal(withBrandLabel.length, 2);
   assert.deepEqual(
-    withGroup.map((line) => line.quantity),
+    withBrandLabel.map((line) => line.quantity),
     [2, 3],
   );
   assert.deepEqual(
-    withGroup.map((line) => line.kind === 'group'
+    withBrandLabel.map((line) => line.kind === 'group'
       ? [line.groupId, line.brand]
       : [line.productId]),
     [[remote.id], [groupLine.groupId, groupLine.brand]],
   );
-  assert.equal(withGroup[0].product.name, 'Leite meio-gordo');
-  assert.equal(withGroup[0].product.demoPriceCents, null);
-  assert.equal(withGroup[1].groupName, 'Leite meio-gordo 1 L');
+  assert.equal(withBrandLabel[0].product.name, 'Leite meio-gordo');
+  assert.equal(withBrandLabel[0].product.demoPriceCents, null);
+  assert.equal(withBrandLabel[1].groupName, 'Leite meio-gordo 1 L');
+  assert.equal(withBrandLabel[1].brandLabel, 'MIMOSA');
+  assert.equal(getBasketItemBrandLabel(summarizeBasket([withBrandLabel[1]]).items[0]), 'MIMOSA');
 });
 
 test('subtotal remoto e total misto sem preço são nulos, sem confundir nomes iguais', () => {

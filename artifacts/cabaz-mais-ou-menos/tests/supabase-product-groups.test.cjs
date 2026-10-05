@@ -238,6 +238,83 @@ test('group member reads report membership, product, and malformed-row errors', 
   });
 });
 
+test('group brand labels resolve normalized identities from active products without price fields', async () => {
+  setup((query) => {
+    if (operation(query, 'from')[1] === 'product_group_items') {
+      return {
+        data: [
+          { group_id: 'group-a', product_id: 'product-2' },
+          { group_id: 'group-b', product_id: 'product-1' },
+          { group_id: 'group-a', product_id: 'product-1' },
+        ],
+        error: null,
+      };
+    }
+    return {
+      data: [
+        { id: 'product-2', name: 'Leite Meio-Gordo Mimosa 1 L', brand: 'Mimosa' },
+        { id: 'product-1', name: 'Leite Meio-Gordo Mimosa 500 ml', brand: ' MIMOSA ' },
+      ],
+      error: null,
+    };
+  });
+
+  const labels = await groupService.getProductGroupBrandLabels(['group-b', 'group-a', 'group-a']);
+
+  assert.deepEqual(labels, [
+    { groupId: 'group-a', brand: 'mimosa', label: 'MIMOSA' },
+    { groupId: 'group-b', brand: 'mimosa', label: 'MIMOSA' },
+  ]);
+  assert.equal(calls.length, 2);
+  assert.deepEqual(calls.map((query) => operation(query, 'from')[1]), [
+    'product_group_items',
+    'products',
+  ]);
+  assert.deepEqual(operation(calls[0], 'select'), ['select', 'group_id,product_id']);
+  assert.deepEqual(operation(calls[0], 'in'), ['in', 'group_id', ['group-b', 'group-a']]);
+  assert.deepEqual(operation(calls[1], 'select'), ['select', 'id,name,brand']);
+  assert.deepEqual(operation(calls[1], 'eq'), ['eq', 'active', true]);
+  for (const query of calls) {
+    assert.deepEqual(operation(query, 'retry'), ['retry', false]);
+    assert.ok(operation(query, 'abortSignal')[1] instanceof AbortSignal);
+  }
+});
+
+test('group brand lookup skips empty input, batches IDs, and propagates invalid responses', async (t) => {
+  await t.test('empty input makes no query', async () => {
+    setup(() => ({ data: [], error: null }));
+    assert.deepEqual(await groupService.getProductGroupBrandLabels([]), []);
+    assert.equal(calls.length, 0);
+  });
+
+  await t.test('long ID lists are batched', async () => {
+    setup(() => ({ data: [], error: null }));
+    const ids = Array.from({ length: 101 }, (_, index) => `group-${index}`);
+    assert.deepEqual(await groupService.getProductGroupBrandLabels(ids), []);
+    assert.equal(calls.length, 2);
+    assert.deepEqual(operation(calls[0], 'in'), ['in', 'group_id', ids.slice(0, 100)]);
+    assert.deepEqual(operation(calls[1], 'in'), ['in', 'group_id', ids.slice(100)]);
+  });
+
+  await t.test('malformed membership row rejects explicitly', async () => {
+    setup(() => ({ data: [{ group_id: 'group-1', product_id: null }], error: null }));
+    await assert.rejects(
+      groupService.getProductGroupBrandLabels(['group-1']),
+      /relação de grupo inválida/,
+    );
+  });
+
+  await t.test('product query errors remain explicit', async () => {
+    setup((query) => operation(query, 'from')[1] === 'product_group_items'
+      ? { data: [{ group_id: 'group-1', product_id: 'product-1' }], error: null }
+      : { data: null, error: { code: '42501', message: 'brand lookup denied' } });
+    await assert.rejects(
+      groupService.getProductGroupBrandLabels(['group-1']),
+      /42501.*brand lookup denied/,
+    );
+  });
+});
+
 test('brand options trim and deduplicate case-insensitively without splitting comma values', () => {
   const options = require('../.test-build/lib/product-group-options.js');
   const brandOptions = options.getProductGroupBrandOptions([

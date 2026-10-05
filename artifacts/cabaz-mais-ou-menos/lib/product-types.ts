@@ -22,6 +22,12 @@ export interface ProductGroup {
   readonly packageUnit: string;
 }
 
+export interface ProductGroupBrandLabel {
+  readonly groupId: string;
+  readonly brand: string;
+  readonly label: string;
+}
+
 export interface ProductGroupMember {
   readonly id: string;
   readonly name: string;

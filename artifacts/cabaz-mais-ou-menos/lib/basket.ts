@@ -1,4 +1,9 @@
-import type { CatalogProduct, ProductGroup, SupabaseProduct } from './product-types';
+import type {
+  CatalogProduct,
+  ProductGroup,
+  ProductGroupBrandLabel,
+  SupabaseProduct,
+} from './product-types';
 import { getDemoProduct } from './products';
 
 export interface ExactBasketLine {
@@ -37,6 +42,10 @@ export type BasketAction =
   | {
       type: 'hydrateGroups';
       groups: readonly ProductGroup[];
+    }
+  | {
+      type: 'hydrateGroupBrandLabels';
+      brandLabels: readonly ProductGroupBrandLabel[];
     }
   | {
       type: 'hydrateProducts';
@@ -126,6 +135,34 @@ export function basketReducer(
       if (!group || group.name === line.groupName) return line;
       changed = true;
       return { ...line, groupName: group.name };
+    });
+    return changed ? next : lines;
+  }
+
+  if (action.type === 'hydrateGroupBrandLabels') {
+    const labelsByIdentity = new Map<string, string>();
+    for (const entry of action.brandLabels) {
+      if (
+        !entry || typeof entry.groupId !== 'string' || !entry.groupId.trim() ||
+        typeof entry.brand !== 'string' || !entry.brand.trim() ||
+        typeof entry.label !== 'string' || !entry.label.trim()
+      ) {
+        throw new Error('O catálogo devolveu um nome de marca inválido para o cabaz.');
+      }
+      const identity = JSON.stringify([entry.groupId, entry.brand]);
+      if (labelsByIdentity.has(identity)) {
+        throw new Error('O catálogo devolveu nomes de marca repetidos para o cabaz.');
+      }
+      labelsByIdentity.set(identity, entry.label);
+    }
+
+    let changed = false;
+    const next = lines.map((line) => {
+      if (line.kind !== 'group' || line.brand === null) return line;
+      const label = labelsByIdentity.get(JSON.stringify([line.groupId, line.brand]));
+      if (!label || label === line.brandLabel) return line;
+      changed = true;
+      return { ...line, brandLabel: label };
     });
     return changed ? next : lines;
   }

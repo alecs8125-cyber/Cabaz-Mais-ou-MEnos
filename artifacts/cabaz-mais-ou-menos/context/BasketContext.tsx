@@ -26,7 +26,10 @@ import {
 } from '@/lib/active-basket';
 import { getDemoProduct } from '@/lib/products';
 import type { CatalogProduct } from '@/lib/product-types';
-import { getProductGroups } from '@/services/product-groups';
+import {
+  getProductGroupBrandLabels,
+  getProductGroups,
+} from '@/services/product-groups';
 import { getProductsByIds } from '@/services/products';
 
 interface BasketContextValue {
@@ -92,9 +95,11 @@ export function BasketProvider({ children }: { children: ReactNode }) {
       writer.setBaseline(loaded.needsRewrite ? null : loaded.serialized);
       const remoteProductIds: string[] = [];
       const productGroupIds: string[] = [];
+      const productGroupBrandIds: string[] = [];
       const restoredLines: BasketLine[] = loaded.lines.map((line) => {
         if (line.kind === 'group') {
           productGroupIds.push(line.groupId);
+          if (line.brand !== null) productGroupBrandIds.push(line.groupId);
           return {
             kind: 'group',
             groupId: line.groupId,
@@ -152,6 +157,15 @@ export function BasketProvider({ children }: { children: ReactNode }) {
           }
         }).catch((error: unknown) => {
           console.warn('Não foi possível atualizar os detalhes dos grupos do cabaz.', error);
+        });
+      }
+      if (productGroupBrandIds.length > 0) {
+        void getProductGroupBrandLabels(productGroupBrandIds).then((brandLabels) => {
+          if (mounted && brandLabels.length > 0) {
+            dispatchBasketAction({ type: 'hydrateGroupBrandLabels', brandLabels });
+          }
+        }).catch((error: unknown) => {
+          console.warn('Não foi possível atualizar os nomes das marcas do cabaz.', error);
         });
       }
       if (!appIsActive) flushLatest();

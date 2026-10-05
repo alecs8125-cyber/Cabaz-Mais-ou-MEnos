@@ -1,9 +1,17 @@
 import { supabase } from '../lib/supabase';
-import type { ProductGroup, ProductGroupMember } from '../lib/product-types';
+import { normalizeProductGroupBrand } from '../lib/product-group-options';
+import type {
+  ProductGroup,
+  ProductGroupBrandLabel,
+  ProductGroupMember,
+} from '../lib/product-types';
 
 const PRODUCT_GROUP_COLUMNS =
   'id,name,product_type,variant,package_quantity,package_unit';
 const PRODUCT_GROUP_MEMBER_COLUMNS = 'id,name,brand,barcode,unit';
+const PRODUCT_GROUP_BRAND_COLUMNS = 'id,name,brand';
+const PRODUCT_GROUP_LINK_PAGE_SIZE = 1000;
+const ID_QUERY_BATCH_SIZE = 100;
 
 async function withRequestSignal<T>(
   operation: (signal: AbortSignal) => Promise<T>,
@@ -160,6 +168,140 @@ export async function getProductGroupMembers(
     const message = cause instanceof Error ? cause.message : 'Erro inesperado na ligação.';
     throw new Error(
       `Não foi possível carregar os membros do grupo em public.product_group_items: ${message}`,
+      { cause },
+    );
+  }
+}
+
+export async function getProductGroupBrandLabels(
+  groupIds: readonly string[],
+  signal?: AbortSignal,
+): Promise<ProductGroupBrandLabel[]> {
+  const uniqueGroupIds = [...new Set(groupIds)];
+  if (uniqueGroupIds.some((id) => typeof id !== 'string' || !id.trim())) {
+    throw new Error('A lista de grupos para recuperar marcas é inválida.');
+  }
+  if (uniqueGroupIds.length === 0) return [];
+
+  try {
+    return await withRequestSignal(async (requestSignal) => {
+      const requestedGroupIds = new Set(uniqueGroupIds);
+      const productIdsByGroup = new Map(
+        uniqueGroupIds.map((groupId) => [groupId, new Set<string>()]),
+      );
+
+      for (let offset = 0; offset < uniqueGroupIds.length; offset += ID_QUERY_BATCH_SIZE) {
+        const groupBatch = uniqueGroupIds.slice(offset, offset + ID_QUERY_BATCH_SIZE);
+        let pageOffset = 0;
+        while (true) {
+          const { data, error } = await supabase
+            .schema('public')
+            .from('product_group_items')
+            .select('group_id,product_id')
+            .in('group_id', groupBatch)
+            .order('group_id', { ascending: true })
+            .order('product_id', { ascending: true })
+            .range(pageOffset, pageOffset + PRODUCT_GROUP_LINK_PAGE_SIZE - 1)
+            .retry(false)
+            .abortSignal(requestSignal);
+
+          if (error) {
+            throw new Error(
+              error.code ? `[${error.code}] ${error.message}` : error.message,
+            );
+          }
+          if (!Array.isArray(data)) {
+            throw new Error('O Supabase devolveu relações de grupos inválidas.');
+          }
+          for (const row of data as Record<string, unknown>[]) {
+            if (
+              !row || typeof row.group_id !== 'string' ||
+              !requestedGroupIds.has(row.group_id) ||
+              typeof row.product_id !== 'string' || !row.product_id.trim()
+            ) {
+              throw new Error('O Supabase devolveu uma relação de grupo inválida.');
+            }
+            productIdsByGroup.get(row.group_id)!.add(row.product_id);
+          }
+          if (data.length < PRODUCT_GROUP_LINK_PAGE_SIZE) break;
+          pageOffset += data.length;
+        }
+      }
+
+      const groupIdsByProduct = new Map<string, Set<string>>();
+      for (const [groupId, productIds] of productIdsByGroup) {
+        for (const productId of productIds) {
+          const groups = groupIdsByProduct.get(productId) ?? new Set<string>();
+          groups.add(groupId);
+          groupIdsByProduct.set(productId, groups);
+        }
+      }
+
+      const productIds = [...groupIdsByProduct.keys()].sort();
+      if (productIds.length === 0) return [];
+      const requestedProductIds = new Set(productIds);
+      const products: { id: string; name: string; brand: string | null }[] = [];
+
+      for (let offset = 0; offset < productIds.length; offset += ID_QUERY_BATCH_SIZE) {
+        const productBatch = productIds.slice(offset, offset + ID_QUERY_BATCH_SIZE);
+        const { data, error } = await supabase
+          .schema('public')
+          .from('products')
+          .select(PRODUCT_GROUP_BRAND_COLUMNS)
+          .in('id', productBatch)
+          .eq('active', true)
+          .order('name', { ascending: true })
+          .order('id', { ascending: true })
+          .retry(false)
+          .abortSignal(requestSignal);
+
+        if (error) {
+          throw new Error(error.code ? `[${error.code}] ${error.message}` : error.message);
+        }
+        if (!Array.isArray(data)) {
+          throw new Error('O Supabase devolveu marcas de produtos inválidas.');
+        }
+        for (const row of data as Record<string, unknown>[]) {
+          if (
+            !row || typeof row.id !== 'string' ||
+            !requestedProductIds.has(row.id) ||
+            typeof row.name !== 'string' || !row.name.trim() ||
+            !(row.brand === null || typeof row.brand === 'string')
+          ) {
+            throw new Error('O Supabase devolveu um produto de marca inválido.');
+          }
+          products.push({
+            id: row.id,
+            name: row.name,
+            brand: row.brand as string | null,
+          });
+        }
+      }
+
+      products.sort((a, b) =>
+        a.name.localeCompare(b.name, 'pt-PT') || a.id.localeCompare(b.id),
+      );
+      const labelsByIdentity = new Map<string, ProductGroupBrandLabel>();
+      for (const product of products) {
+        const label = product.brand?.trim();
+        const brand = normalizeProductGroupBrand(label);
+        if (!brand || !label) continue;
+
+        for (const groupId of groupIdsByProduct.get(product.id) ?? []) {
+          const identity = JSON.stringify([groupId, brand]);
+          if (!labelsByIdentity.has(identity)) {
+            labelsByIdentity.set(identity, { groupId, brand, label });
+          }
+        }
+      }
+      return [...labelsByIdentity.values()].sort((a, b) =>
+        a.groupId.localeCompare(b.groupId) || a.brand.localeCompare(b.brand),
+      );
+    }, signal);
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : 'Erro inesperado na ligação.';
+    throw new Error(
+      `Não foi possível carregar os nomes das marcas dos grupos: ${message}`,
       { cause },
     );
   }
