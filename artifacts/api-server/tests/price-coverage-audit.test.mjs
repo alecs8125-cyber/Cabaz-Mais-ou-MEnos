@@ -5,6 +5,13 @@ import {
   readPriceCoverageAuditInput,
   SupabasePriceCoverageReadClient,
 } from "../tmp/price-coverage-test-build/services/price-import/supabase-price-coverage-read.js";
+import {
+  buildPriceSourceHealthReport,
+} from "../tmp/price-coverage-test-build/services/price-import/price-source-health.js";
+import {
+  readPriceSourceHealthData,
+  SupabasePriceSourceHealthReadClient,
+} from "../tmp/price-coverage-test-build/services/price-import/supabase-price-source-health-read.js";
 
 const asOf = new Date("2026-10-04T12:00:00.000Z");
 const continenteOnline = {
@@ -90,6 +97,7 @@ test("reporta cobertura, frescura, duplicados e órfãos com um instante determi
   };
 
   const report = buildPriceCoverageAuditReport(input, asOf);
+  assert.equal(report.generatedAt, asOf.toISOString());
   const source = report.sources.find((entry) => entry.sourceType === "continente");
   assert.ok(source);
   assert.deepEqual(source.products, {
@@ -263,4 +271,159 @@ test("o cliente rejeita tabelas fora da lista e não expõe a credencial nos err
     client.getRows("source_sync_state", { select: "*" }),
     /not allowlisted/,
   );
+});
+
+function healthCapabilities(sourceType) {
+  return {
+    product_identity_unique: true,
+    store_identity_unique: true,
+    price_identity_unique: true,
+    ...(sourceType === "auchan" ? { reference_store_exists: true } : {}),
+  };
+}
+
+function checkpoint(sourceType, overrides = {}) {
+  return {
+    source_type: sourceType,
+    cursor_value: "complete:1",
+    last_attempt_at: "2026-10-04T11:00:00.000Z",
+    last_success_at: "2026-10-04T11:00:00.000Z",
+    last_error: null,
+    metadata: {
+      dailySyncVersion: 1,
+      phase: "complete",
+      run: { id: "test-run", status: "complete", lock: null },
+    },
+    updated_at: "2026-10-04T11:00:00.000Z",
+    ...overrides,
+  };
+}
+
+function healthReadResult(overrides = {}) {
+  return {
+    capabilities: {
+      continente: healthCapabilities("continente"),
+      auchan: healthCapabilities("auchan"),
+      ...overrides.capabilities,
+    },
+    capabilityErrors: {
+      continente: null,
+      auchan: null,
+      ...overrides.capabilityErrors,
+    },
+    checkpoints: {
+      continente: [checkpoint("continente")],
+      auchan: [checkpoint("auchan")],
+      ...overrides.checkpoints,
+    },
+    checkpointErrors: {
+      continente: null,
+      auchan: null,
+      ...overrides.checkpointErrors,
+    },
+  };
+}
+
+test("health check confirma capabilities, checkpoints e preços válidos nas referências esperadas", () => {
+  const prices = [
+    price("healthy-continente", "c1", continenteOnline.id),
+    price("healthy-auchan", "a1", auchanReference.id, { source_type: "auchan" }),
+  ];
+  const report = buildPriceSourceHealthReport(
+    [continenteOnline, auchanReference],
+    prices,
+    healthReadResult(),
+    asOf,
+  );
+
+  assert.equal(report.generatedAt, asOf.toISOString());
+  assert.equal(report.readOnly, true);
+  assert.equal(report.databaseWrites, 0);
+  assert.equal(report.capabilityRpcGets, 2);
+  assert.deepEqual(report.sources.map(({ sourceType, ok }) => [sourceType, ok]), [
+    ["continente", true],
+    ["auchan", true],
+  ]);
+  assert.equal(report.sources[0].checkpoint.status, "complete");
+  assert.equal(report.sources[0].prices.validAtExpectedReference, 1);
+  assert.equal(report.sources[1].capabilities.referenceStoreExists, true);
+  assert.equal(report.sources[1].prices.hasValidPriceAtExpectedReference, true);
+});
+
+test("health check falha em referências ausentes, checkpoint com lease expirado e sem preço válido", () => {
+  const report = buildPriceSourceHealthReport(
+    [continenteOnline],
+    [
+      price("expired-auchan", "a1", "missing-auchan-store", {
+        source_type: "auchan",
+        valid_until: "2026-10-04T11:59:59.000Z",
+      }),
+    ],
+    healthReadResult({
+      checkpoints: {
+        continente: [],
+        auchan: [checkpoint("auchan", {
+          metadata: {
+            dailySyncVersion: 1,
+            phase: "discovery",
+            run: {
+              id: "expired-run",
+              status: "running",
+              lock: {
+                runId: "expired-run",
+                expiresAt: "2026-10-04T11:00:00.000Z",
+              },
+            },
+          },
+        })],
+      },
+    }),
+    asOf,
+  );
+
+  assert.equal(report.sources[0].checkpoint.status, "missing");
+  assert.equal(report.sources[0].reference.ok, true);
+  assert.equal(report.sources[0].ok, false);
+  assert.equal(report.sources[1].checkpoint.status, "stale_lock");
+  assert.equal(report.sources[1].reference.ok, false);
+  assert.equal(report.sources[1].prices.expired, 1);
+  assert.equal(report.sources[1].prices.validAtExpectedReference, 0);
+  assert.equal(report.sources[1].ok, false);
+});
+
+test("cliente do health check só faz GET aos checkpoints e às capabilities allowlisted", async () => {
+  const calls = [];
+  const client = new SupabasePriceSourceHealthReadClient({
+    url: "https://example.supabase.co",
+    serviceRoleKey: "health-test-service-role-marker",
+  }, async (input, init) => {
+    const url = new URL(String(input));
+    calls.push({ url, init });
+    const body = url.pathname.endsWith("/source_sync_state")
+      ? [checkpoint(url.searchParams.get("source_type").slice(3))]
+      : healthCapabilities(url.pathname.includes("auchan") ? "auchan" : "continente");
+    return new Response(JSON.stringify(body), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  });
+
+  const data = await readPriceSourceHealthData(client);
+  assert.equal(calls.length, 4);
+  assert.equal(calls.every(({ init }) => init.method === "GET"), true);
+  assert.equal(calls.every(({ url }) =>
+    url.pathname.endsWith("/source_sync_state") ||
+    url.pathname.endsWith("/rpc/continente_sync_capabilities") ||
+    url.pathname.endsWith("/rpc/auchan_sync_capabilities")
+  ), true);
+  assert.equal(calls.every(({ url }) =>
+    url.pathname.endsWith("/source_sync_state")
+      ? url.searchParams.get("select") ===
+        "source_type,cursor_value,last_attempt_at,last_success_at,last_error,metadata,updated_at"
+      : true
+  ), true);
+  assert.equal(data.capabilities.continente.product_identity_unique, true);
+  assert.equal(data.checkpoints.auchan[0].source_type, "auchan");
+  assert.throws(() => client.getCapabilities("unexpected"), /not allowlisted/);
+  await assert.rejects(client.getCheckpointRows("unexpected"), /not allowlisted/);
 });

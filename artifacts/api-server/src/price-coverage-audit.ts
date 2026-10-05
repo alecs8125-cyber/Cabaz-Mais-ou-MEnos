@@ -5,9 +5,9 @@ import {
 } from "./services/price-import/supabase-price-coverage-read.js";
 
 async function main(): Promise<void> {
-  const asOf = new Date();
   const client = createSupabasePriceCoverageReadClient();
   const input = await readPriceCoverageAuditInput(client);
+  const asOf = new Date();
   const report = buildPriceCoverageAuditReport(input, asOf);
   console.log(JSON.stringify(report, null, 2));
   if (

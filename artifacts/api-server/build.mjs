@@ -47,6 +47,10 @@ async function buildAll() {
         artifactDir,
         "src/price-coverage-audit.ts",
       ),
+      "price-source-health": path.resolve(
+        artifactDir,
+        "src/price-source-health.ts",
+      ),
     },
     platform: "node",
     bundle: true,
