@@ -24,6 +24,9 @@ import {
 import {
   SupabaseAuchanSyncRepository,
 } from "../tmp/price-import-test-build/services/price-import/supabase-auchan-sync-repository.js";
+import {
+  resolveServerSupabaseUrl,
+} from "../tmp/price-import-test-build/services/price-import/server-supabase-env.js";
 
 const policyText = "Os preços apresentados no site Auchan.pt são os praticados nas compras online. Antes do registo e autenticação do cliente os preços apresentados servem apenas como referência e são os praticados para entregas e recolhas no código postal 2650-435 Amadora. Após o login e em função da proximidade e do código postal, serão apresentados os preços em vigor na loja que serve o local de entrega ou de recolha.";
 
@@ -49,6 +52,44 @@ function productHtml(overrides = {}, includePolicy = true) {
 function response(body, status = 200, headers = {}) {
   return new Response(body, { status, headers });
 }
+
+test("server Supabase URL is canonical with development-only Expo fallback", () => {
+  const canonical = "https://server.supabase.co";
+  const legacy = "https://legacy.supabase.co";
+  assert.equal(
+    resolveServerSupabaseUrl({
+      SUPABASE_URL: canonical,
+      EXPO_PUBLIC_SUPABASE_URL: legacy,
+      NODE_ENV: "production",
+    }),
+    canonical,
+  );
+  assert.equal(
+    resolveServerSupabaseUrl({
+      SUPABASE_URL: " ",
+      EXPO_PUBLIC_SUPABASE_URL: legacy,
+      NODE_ENV: "development",
+    }),
+    legacy,
+  );
+  assert.throws(
+    () => resolveServerSupabaseUrl({
+      EXPO_PUBLIC_SUPABASE_URL: legacy,
+      NODE_ENV: "production",
+    }),
+    /SUPABASE_URL is required/,
+  );
+});
+
+test("Auchan server repository starts from SUPABASE_URL alone", () => {
+  const repository = new SupabaseAuchanSyncRepository(false, {
+    SUPABASE_URL: "https://server.supabase.co",
+    SUPABASE_SERVICE_ROLE_KEY: "sb_secret_test",
+  }, async () => {
+    throw new Error("constructor must not make a request");
+  });
+  assert.equal(repository.commitEnabled, false);
+});
 
 test("Auchan parser usa SKU = ID da URL, GTIN válido e preço sem exigir MPN", () => {
   const parsed = parseAuchanProductHtml(
@@ -890,7 +931,7 @@ test("preflight bloqueado impede qualquer inserção Auchan", async () => {
 test("o repositório Auchan rejeita mutações quando criado em modo dry-run", async () => {
   const calls = [];
   const repository = new SupabaseAuchanSyncRepository(false, {
-    EXPO_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
+    SUPABASE_URL: "https://example.supabase.co",
     SUPABASE_SERVICE_ROLE_KEY: "sb_secret_test",
   }, async (...args) => {
     calls.push(args);

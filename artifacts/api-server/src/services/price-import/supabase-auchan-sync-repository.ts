@@ -6,6 +6,7 @@ import {
   createSupabaseAuchanReadClient,
   SupabaseAuchanReadClient,
 } from "./supabase-auchan-read.js";
+import { resolveServerSupabaseUrl } from "./server-supabase-env.js";
 
 type Row = Record<string, unknown>;
 
@@ -177,8 +178,7 @@ export class SupabaseAuchanSyncRepository {
     environment: Record<string, string | undefined> = process.env,
     private readonly fetchImpl: typeof fetch = fetch,
   ) {
-    const rawUrl = environment.SUPABASE_URL ?? environment.EXPO_PUBLIC_SUPABASE_URL;
-    if (!rawUrl) throw new Error("Missing SUPABASE_URL or EXPO_PUBLIC_SUPABASE_URL.");
+    const rawUrl = resolveServerSupabaseUrl(environment);
     this.baseUrl = new URL(rawUrl);
     if (
       this.baseUrl.protocol !== "https:" ||

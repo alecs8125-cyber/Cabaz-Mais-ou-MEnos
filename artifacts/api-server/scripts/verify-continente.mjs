@@ -6,10 +6,13 @@ const PRODUCT_ID_CHUNK_SIZE = 50;
 const UUID_PATTERN = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 
 function configuration() {
-  const rawUrl = process.env.SUPABASE_URL ?? process.env.EXPO_PUBLIC_SUPABASE_URL;
+  const rawUrl = process.env.SUPABASE_URL?.trim() ||
+    (process.env.NODE_ENV === "development"
+      ? process.env.EXPO_PUBLIC_SUPABASE_URL?.trim()
+      : undefined);
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!rawUrl || !serviceKey) {
-    throw new Error("Read-only verification requires the configured Supabase URL and service-role secret.");
+    throw new Error("Read-only verification requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.");
   }
   const url = new URL(rawUrl);
   if (!["https:", "http:"].includes(url.protocol) || !url.hostname) {

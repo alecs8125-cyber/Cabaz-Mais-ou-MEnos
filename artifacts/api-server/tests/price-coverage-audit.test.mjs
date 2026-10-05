@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { buildPriceCoverageAuditReport } from "../tmp/price-coverage-test-build/services/price-import/price-coverage-audit.js";
 import {
+  createSupabasePriceCoverageReadClient,
   readPriceCoverageAuditInput,
   SupabasePriceCoverageReadClient,
 } from "../tmp/price-coverage-test-build/services/price-import/supabase-price-coverage-read.js";
@@ -9,11 +10,30 @@ import {
   buildPriceSourceHealthReport,
 } from "../tmp/price-coverage-test-build/services/price-import/price-source-health.js";
 import {
+  createSupabasePriceSourceHealthReadClient,
   readPriceSourceHealthData,
   SupabasePriceSourceHealthReadClient,
 } from "../tmp/price-coverage-test-build/services/price-import/supabase-price-source-health-read.js";
 
 const asOf = new Date("2026-10-04T12:00:00.000Z");
+
+test("read-only server audit clients accept canonical SUPABASE_URL", () => {
+  const environment = {
+    SUPABASE_URL: "https://server.supabase.co",
+    SUPABASE_SERVICE_ROLE_KEY: "sb_secret_test",
+  };
+  const noRequest = async () => {
+    throw new Error("factory construction must not make a request");
+  };
+
+  assert.doesNotThrow(
+    () => createSupabasePriceCoverageReadClient(environment, noRequest),
+  );
+  assert.doesNotThrow(
+    () => createSupabasePriceSourceHealthReadClient(environment, noRequest),
+  );
+});
+
 const continenteOnline = {
   id: "store-continente-online",
   name: "Continente Online",

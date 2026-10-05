@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  createSupabaseRestReadClient,
   SupabaseRestReadClient,
 } from "../tmp/price-import-test-build/services/price-import/supabase-read.js";
 import {
@@ -13,6 +14,23 @@ function jsonResponse(rows, status = 200) {
     headers: { "content-type": "application/json" },
   });
 }
+
+test("server read factory uses SUPABASE_URL with the existing publishable key", async () => {
+  const calls = [];
+  const client = createSupabaseRestReadClient({
+    SUPABASE_URL: "https://server.supabase.co",
+    EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test-only",
+  }, async (input, init) => {
+    calls.push({ url: new URL(String(input)), init });
+    return jsonResponse([]);
+  });
+
+  await client.getRows("products", { select: "id" });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url.origin, "https://server.supabase.co");
+  assert.equal(calls[0].init.method, "GET");
+});
 
 test("produto é consultado por barcode textual exato e só por GET", async () => {
   const calls = [];

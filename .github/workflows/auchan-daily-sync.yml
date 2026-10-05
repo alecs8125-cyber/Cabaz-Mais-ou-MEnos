@@ -41,7 +41,7 @@ jobs:
             exit 1
           fi
 
-      - name: Check required secrets without printing values
+      - name: Check server Supabase configuration (presence only)
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -73,13 +73,17 @@ jobs:
       - name: Install API server dependencies
         run: pnpm install --frozen-lockfile --filter '@workspace/api-server...'
 
-      - name: Run daily sync
+      - name: Validate push with a dry-run or run scheduled sync
+        # This server uses SUPABASE_URL; Expo-prefixed URLs are not required here.
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           DRY_RUN: ${{ inputs.dry_run }}
         run: |
-          if [[ "$GITHUB_EVENT_NAME" == "schedule" || "${DRY_RUN,,}" == "false" ]]; then
+          # Only the schedule or an explicit manual opt-out from dry-run can write.
+          if [[ "$GITHUB_EVENT_NAME" == "schedule" ]]; then
+            mode_flag="--commit"
+          elif [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && "${DRY_RUN,,}" == "false" ]]; then
             mode_flag="--commit"
           else
             mode_flag="--dry-run"

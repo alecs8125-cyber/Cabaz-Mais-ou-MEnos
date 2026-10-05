@@ -1,3 +1,5 @@
+import { resolveServerSupabaseUrl } from "./server-supabase-env.js";
+
 export type SupabaseReadTable =
   | "products"
   | "stores"
@@ -29,7 +31,7 @@ function validateConfig(config: SupabaseReadConfig): SupabaseReadConfig {
   try {
     parsedUrl = new URL(config.url);
   } catch {
-    throw new Error("EXPO_PUBLIC_SUPABASE_URL tem um formato inválido.");
+    throw new Error("SUPABASE_URL tem um formato inválido.");
   }
 
   if (
@@ -41,7 +43,7 @@ function validateConfig(config: SupabaseReadConfig): SupabaseReadConfig {
     parsedUrl.hash
   ) {
     throw new Error(
-      "EXPO_PUBLIC_SUPABASE_URL deve ser uma URL HTTP/HTTPS sem credenciais ou parâmetros.",
+      "SUPABASE_URL deve ser uma URL HTTP/HTTPS sem credenciais ou parâmetros.",
     );
   }
 
@@ -107,13 +109,10 @@ export function createSupabaseRestReadClient(
   environment: Record<string, string | undefined> = process.env,
   fetchImplementation: typeof fetch = fetch,
 ): SupabaseRestReadClient {
-  const url = environment.EXPO_PUBLIC_SUPABASE_URL?.trim();
+  const url = resolveServerSupabaseUrl(environment);
   const publishableKey =
     environment.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim();
 
-  if (!url) {
-    throw new Error("Falta EXPO_PUBLIC_SUPABASE_URL.");
-  }
   if (!publishableKey) {
     throw new Error("Falta EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY.");
   }

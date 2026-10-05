@@ -1,6 +1,7 @@
 import type {
   ContinenteCatalogProduct, ContinenteExternalProductMapping,
 } from "./continente-types.js";
+import { resolveServerSupabaseUrl } from "./server-supabase-env.js";
 
 export interface SyncProduct extends ContinenteCatalogProduct {
   readonly sourceType: string | null;
@@ -138,8 +139,7 @@ export class SupabaseContinenteSyncRepository implements ContinenteSyncRepositor
     environment: Record<string, string | undefined> = process.env,
     private readonly fetchImpl: typeof fetch = fetch,
   ) {
-    const url = environment.SUPABASE_URL ?? environment.EXPO_PUBLIC_SUPABASE_URL;
-    if (!url) throw new Error("Missing SUPABASE_URL or EXPO_PUBLIC_SUPABASE_URL.");
+    const url = resolveServerSupabaseUrl(environment);
     this.base = new URL(url);
     if (this.base.protocol !== "https:" || this.base.username || this.base.password ||
         this.base.search || this.base.hash) throw new Error("Invalid Supabase HTTPS URL.");

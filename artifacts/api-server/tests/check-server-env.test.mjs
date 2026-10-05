@@ -39,3 +39,26 @@ test("whitespace-only values are reported absent", () => {
     serviceRolePresent: false,
   });
 });
+
+test("EXPO_PUBLIC_SUPABASE_URL is only a development fallback", () => {
+  const legacy = "https://development.supabase.co";
+  const production = run({
+    NODE_ENV: "production",
+    EXPO_PUBLIC_SUPABASE_URL: legacy,
+  });
+  assert.equal(production.status, 0);
+  assert.deepEqual(JSON.parse(production.stdout), {
+    supabaseUrlPresent: false,
+    serviceRolePresent: false,
+  });
+
+  const development = run({
+    NODE_ENV: "development",
+    EXPO_PUBLIC_SUPABASE_URL: legacy,
+  });
+  assert.equal(development.status, 0);
+  assert.deepEqual(JSON.parse(development.stdout), {
+    supabaseUrlPresent: true,
+    serviceRolePresent: false,
+  });
+});

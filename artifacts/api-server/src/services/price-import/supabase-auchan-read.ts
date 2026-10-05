@@ -6,6 +6,7 @@ import type {
   SupabaseReadOnlyClient,
   SupabaseReadTable,
 } from "./supabase-read.js";
+import { resolveServerSupabaseUrl } from "./server-supabase-env.js";
 
 const ALLOWED_TABLES = new Set<SupabaseReadTable>([
   "products",
@@ -30,7 +31,7 @@ function readConfig(config: SupabaseAuchanReadConfig): SupabaseAuchanReadConfig 
   try {
     url = new URL(config.url);
   } catch {
-    throw new Error("EXPO_PUBLIC_SUPABASE_URL has an invalid format.");
+    throw new Error("SUPABASE_URL has an invalid format.");
   }
   if (
     !["https:", "http:"].includes(url.protocol) ||
@@ -39,7 +40,7 @@ function readConfig(config: SupabaseAuchanReadConfig): SupabaseAuchanReadConfig 
     url.password ||
     url.search ||
     url.hash
-  ) throw new Error("EXPO_PUBLIC_SUPABASE_URL must be an HTTP(S) URL without credentials or parameters.");
+  ) throw new Error("SUPABASE_URL must be an HTTP(S) URL without credentials or parameters.");
   if (!config.serviceRoleKey.trim()) {
     throw new Error("SUPABASE_SERVICE_ROLE_KEY is required for private, read-only mapping lookup.");
   }
@@ -139,9 +140,8 @@ export function createSupabaseAuchanReadClient(
   environment: Record<string, string | undefined> = process.env,
   fetchImplementation: typeof fetch = fetch,
 ): SupabaseAuchanReadClient {
-  const url = environment.EXPO_PUBLIC_SUPABASE_URL?.trim();
+  const url = resolveServerSupabaseUrl(environment);
   const serviceRoleKey = environment.SUPABASE_SERVICE_ROLE_KEY?.trim();
-  if (!url) throw new Error("Missing EXPO_PUBLIC_SUPABASE_URL.");
   if (!serviceRoleKey) throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY.");
   return new SupabaseAuchanReadClient(
     { url, serviceRoleKey },

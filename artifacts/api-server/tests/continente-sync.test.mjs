@@ -234,7 +234,7 @@ test("commit exige service role e limites explícitos; chave pública não habil
     assert.throws(() => parseContinenteSyncOptions(args));
   }
   assert.equal(parseContinenteSyncOptions(["--commit", "--limit=20", "--offset=0"]).commit, true);
-  const env = { EXPO_PUBLIC_SUPABASE_URL: "https://example.supabase.co", EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test" };
+  const env = { SUPABASE_URL: "https://example.supabase.co", EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test" };
   assert.throws(() => new SupabaseContinenteSyncRepository(true, env), /SERVICE_ROLE/);
   assert.throws(() => new SupabaseContinenteSyncRepository(true, { ...env, SUPABASE_SERVICE_ROLE_KEY: "sb_publishable_test" }), /service-role/);
   let calls = 0;
